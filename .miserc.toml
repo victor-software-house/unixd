@@ -1,0 +1,3 @@
+# Loaded before any mise.toml. Local default is the compile toolchain.
+# CI overrides: MISE_ENV=dev | dev,ci
+env = ["dev"]

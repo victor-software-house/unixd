@@ -1,0 +1,6 @@
+# Official env overlay: https://mise.jdx.dev/configuration/environments.html
+# Loaded when MISE_ENV contains `ci` (Verify).
+
+[env]
+CARGO_INCREMENTAL = "0"
+CARGO_TERM_COLOR = "always"

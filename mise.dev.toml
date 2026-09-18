@@ -1,0 +1,63 @@
+# Loaded when MISE_ENV contains `dev` (local default via .miserc.toml).
+# Compile this checkout.
+
+[tools]
+committed = "1.1.11"
+lefthook = "2.1.10"
+rust = { version = "nightly", components = "rustfmt,clippy" }
+"github:nextest-rs/nextest" = "cargo-nextest-0.9.143"
+"github:EmbarkStudios/cargo-deny" = "0.20.2"
+"github:bnjbvr/cargo-machete" = "0.9.2"
+
+[tasks.format]
+description = "rustfmt check"
+run = "cargo fmt --all -- --check"
+
+[tasks.lint]
+description = "clippy -D warnings"
+run = "cargo clippy --all-targets --all-features -- -D warnings"
+
+[tasks.check]
+description = "Type-check every crate, alone and with all features"
+run = [
+  "cargo check --workspace --all-targets",
+  "cargo check --workspace --all-targets --all-features",
+]
+
+[tasks."check:runtime-free"]
+description = "Prove unixd-cache pulls in no async runtime"
+run = "! cargo tree -p unixd-cache --edges normal | grep -qw tokio"
+
+[tasks.test]
+description = "Parallel tests via nextest"
+run = "cargo nextest run --all-features"
+
+[tasks."test:doc"]
+description = "Doc-tests (nextest does not run these)"
+run = "cargo test --doc --all-features"
+
+[tasks.deny]
+description = "License, ban, and source policy (offline)"
+run = "cargo deny check licenses bans sources"
+
+[tasks."deny:advisories"]
+description = "RustSec advisories and yanked crates (network)"
+run = "cargo deny check advisories"
+
+[tasks.deps]
+description = "Unused crate analysis"
+run = "cargo-machete --with-metadata"
+
+[tasks.commit-msg]
+description = "Lint the git commit-msg file with committed"
+usage = 'arg "<file>" help="Path to the commit message file"'
+run = 'committed --commit-file "${usage_file}"'
+
+[tasks.commits]
+description = "Lint commit messages with committed"
+usage = 'arg "[commits]" default="HEAD" help="Commit or range"'
+run = 'committed "${usage_commits}"'
+
+[tasks.verify]
+description = "Format, lint, feature sets, nextest, doc-tests, deny, unused crates"
+depends = ["format", "lint", "check", "check:runtime-free", "test", "test:doc", "deny", "deps"]

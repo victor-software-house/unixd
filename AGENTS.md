@@ -1,0 +1,48 @@
+# unixd
+
+Two crates for a socket-activated per-user daemon and a bounded on-disk
+cache. Library only; this repository ships no command.
+
+Read [`docs/design/daemon-and-cache.md`](docs/design/daemon-and-cache.md)
+before writing code. It is the contract, not a sketch.
+
+## Layout
+
+```text
+Cargo.toml              # workspace root, no root package
+crates/unixd/           # runtime shell, Tokio
+crates/unixd-cache/     # cache policy, no reactor
+docs/design/
+```
+
+## Rules
+
+1. **`unixd-cache` must never depend on an async runtime.** Its consumer's
+   direct path has no reactor. Coalescing is a trait the daemon layer
+   implements; the direct path binds a no-op.
+2. **`unsafe` is forbidden** at the workspace level, and every lint group is
+   denied. Do not relax a lint to land a change.
+3. **Activation stays behind the trait.** One implementation ships. No call
+   site branches on which one is active.
+4. **No credential, path, or peer identity in a log line, an error, or a
+   cache key.** Cache identity is about what was fetched, never who asked or
+   how it will be rendered.
+5. **Always open PRs.** Never push to `main`. Branch `type/short-desc`.
+   Never `--no-verify`.
+6. **Verification is named per change.** A behaviour claim carries the check
+   that proves it. The design document's verification table is the baseline,
+   and step 7 is a required regression.
+
+## Development
+
+Rust nightly, pinned by `rust-toolchain.toml`. Tasks come from
+`mise.dev.toml`:
+
+```sh
+mise run format
+mise run lint
+mise run test
+mise run verify
+```
+
+Lints are denied, not warned. `mise run verify` is the gate.
