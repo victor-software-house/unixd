@@ -30,7 +30,7 @@ run = "! cargo tree -p unixd-cache --edges normal | grep -qw tokio"
 
 [tasks.test]
 description = "Parallel tests via nextest"
-run = "cargo nextest run --all-features"
+run = "cargo nextest run --all-features --no-tests=warn"
 
 [tasks."test:doc"]
 description = "Doc-tests (nextest does not run these)"
