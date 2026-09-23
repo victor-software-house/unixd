@@ -46,3 +46,10 @@ mise run verify
 ```
 
 Lints are denied, not warned. `mise run verify` is the gate.
+
+## Changes
+
+Plan a behaviour or contract change as an OpenSpec change in
+`openspec/changes/<name>/` before writing code. `openspec/config.yaml` holds
+this repository's context and rules, and `openspec validate <name>` checks the
+change.

@@ -1,0 +1,28 @@
+schema: spec-driven
+
+context: |
+  unixd is two library crates: a socket-activated per-user daemon runtime
+  (unixd) and a bounded on-disk cache (unixd-cache). It ships no command.
+  Contracts: AGENTS.md and docs/design/daemon-and-cache.md, which is the
+  contract, not a sketch.
+  Writing style: plain English, short sentences, numbered lists, no em-dashes,
+  no emojis. This repository is public: no local paths, machine names, or
+  private repository names in any artifact.
+
+rules:
+  proposal:
+    - State the measured problem, with numbers where they exist.
+  specs:
+    - Every requirement uses SHALL and has at least one WHEN/THEN scenario.
+    - Scenarios use concrete commands, flags, files, and environment values.
+  design:
+    - Each decision names the alternative considered and why it lost.
+    - Every automatic behaviour names its public override and its disable path.
+  tasks:
+    - Each task names the command or observation that proves it is done.
+    - Compile, format, lint, and test tasks run on the build host, not the authoring workstation.
+
+operations:
+  archive:
+    guidance:
+      - Update docs/design/daemon-and-cache.md where the change made it true or false.
