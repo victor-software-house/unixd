@@ -14,9 +14,6 @@ pub enum Error {
     Io(io::ErrorKind),
     /// A file lock could not be taken.
     Lock,
-    /// A key part is named like a credential, an output format, a destination,
-    /// or a request id. The payload is the part's name, never its value.
-    ForbiddenKeyPart(String),
     /// The same key part name was given twice.
     DuplicateKeyPart(String),
     /// A value could not be serialized.
@@ -35,10 +32,6 @@ impl fmt::Display for Error {
             Self::UnsafeRoot => formatter.write_str("cache root is not a private directory"),
             Self::Io(kind) => write!(formatter, "cache I/O failed: {kind}"),
             Self::Lock => formatter.write_str("cache lock could not be taken"),
-            Self::ForbiddenKeyPart(name) => write!(
-                formatter,
-                "key part `{name}` names a credential, output format, destination, or request id"
-            ),
             Self::DuplicateKeyPart(name) => write!(formatter, "key part `{name}` given twice"),
             Self::Encode => formatter.write_str("value could not be serialized"),
         }

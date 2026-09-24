@@ -8,9 +8,8 @@ A stale entry answers only a transient upstream failure: a timeout, a network
 failure, HTTP 429, or HTTP 5xx. It never answers 401, 403, 404, invalid JSON,
 or a schema mismatch.
 
-A key is a namespace plus named parts. Cache identity is what was fetched, so
-a part named like a credential, an output format, a destination path, or a
-request id is refused.
+A key is a namespace plus named parts, sorted and hashed, so part order does
+not matter.
 
 Synchronous. No async runtime, no database. The same cache is correct whether
 a daemon or a direct in-process call owns it.

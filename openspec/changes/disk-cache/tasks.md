@@ -5,10 +5,10 @@ Compile, format, lint, and test tasks run on the build host with `mise run verif
 ## 1. Crate
 
 - [x] 1.1 Key builder, policy, failure table, and error type; proof: the stale matrix and key tests pass
-  - 2026-09-24 UTC: `only_transient_failures_serve_stale` and `credential_and_presentation_parts_are_refused` passed under `mise run verify`.
+  - 2026-09-24 UTC: `only_transient_failures_serve_stale`, `duplicate_part_is_refused`, and `part_order_does_not_change_the_key` passed under `mise run verify`.
 - [x] 1.2 Store, lookup, locks, atomic write, prune, clear, and usage; proof: the atomicity, prune, schema-bump, and root-safety tests pass
   - 2026-09-24 UTC: `mise run verify` on the build host passed; nextest ran 20 tests in [`tests/cache.rs`](../../../crates/unixd-cache/tests/cache.rs), all passed.
-- [x] 1.3 README and crate docs name the stale matrix and the key rule; proof: `mise run test:doc` passes
+- [x] 1.3 README and crate docs name the stale matrix; proof: `mise run test:doc` passes
   - 2026-09-24 UTC: the crate doc test passed under `mise run verify`.
 
 ## 2. Design
