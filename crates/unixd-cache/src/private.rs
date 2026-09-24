@@ -137,10 +137,11 @@ pub(crate) fn regular(path: &Path) -> Result<Option<Metadata>, Error> {
 /// `None` and stays in place. `NONBLOCK` keeps a FIFO from blocking the open.
 /// Opening a symlink or a socket fails with an errno that varies by platform,
 /// so a failed open checks the file type before reporting an error. A file
-/// longer than `limit` reads as `None` without its contents being read.
+/// longer than `limit`, or one that grows past it during the read, reads as
+/// `None`.
 pub(crate) fn read(path: &Path, limit: u64) -> Result<Option<(Vec<u8>, Metadata)>, Error> {
     let flags = OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOFOLLOW | OFlags::NONBLOCK;
-    let mut file = match rustix::fs::open(path, flags, Mode::empty()) {
+    let file = match rustix::fs::open(path, flags, Mode::empty()) {
         Ok(fd) => File::from(fd),
         Err(rustix::io::Errno::NOENT) => return Ok(None),
         Err(errno) => {
@@ -156,8 +157,12 @@ pub(crate) fn read(path: &Path, limit: u64) -> Result<Option<(Vec<u8>, Metadata)
         return Ok(None);
     }
     let mut bytes = Vec::new();
-    file.read_to_end(&mut bytes)
+    file.take(limit.saturating_add(1))
+        .read_to_end(&mut bytes)
         .map_err(|error| Error::io(&error))?;
+    if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > limit {
+        return Ok(None);
+    }
     Ok(Some((bytes, metadata)))
 }
 

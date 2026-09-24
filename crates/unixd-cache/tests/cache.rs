@@ -767,8 +767,9 @@ fn default_root_ignores_an_empty_or_relative_base() {
         }
         let output = child.output().unwrap();
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(output.status.success(), "HOME={home:?}: {stdout}");
-        assert!(stdout.contains("1 passed"), "HOME={home:?}: {stdout}");
+        let case = format!("HOME={home:?} XDG_CACHE_HOME={xdg:?}");
+        assert!(output.status.success(), "{case}: {stdout}");
+        assert!(stdout.contains("1 passed"), "{case}: {stdout}");
     }
 }
 
