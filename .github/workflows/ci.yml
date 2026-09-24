@@ -40,4 +40,4 @@ jobs:
       - name: Advisories
         run: mise run deny:advisories
       - name: Package
-        run: cargo package --locked --workspace --all-features
+        run: mise x -- cargo package --locked --workspace --all-features
