@@ -24,8 +24,21 @@ const FORBIDDEN_WORDS: &[&str] = &[
     "apikey",
 ];
 
-/// Substrings that mark a credential across a separator.
-const FORBIDDEN_SUBSTRINGS: &[&str] = &["api_key", "access_key", "private_key"];
+/// Substrings that mark a credential across a separator, or run together
+/// with no separator or case change at all.
+const FORBIDDEN_SUBSTRINGS: &[&str] = &[
+    "api_key",
+    "access_key",
+    "private_key",
+    "accesstoken",
+    "authtoken",
+    "apitoken",
+    "bearertoken",
+    "refreshtoken",
+    "sessiontoken",
+    "clientsecret",
+    "secretkey",
+];
 
 /// Whole names that describe how or where a result is shown, or which request
 /// asked for it, never what was fetched.

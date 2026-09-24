@@ -188,6 +188,9 @@ impl Cache {
     /// `schema` is the version of the caller's stored value type. Raise it
     /// when that type changes: entries from a lower schema are then served
     /// only as [`Lookup::Stale`], and entries from a higher one are ignored.
+    /// While two schema versions share a root, each binary overwrites the
+    /// other's entry on its next store of that key. That costs an extra
+    /// upstream fetch per switch and never serves the wrong schema.
     ///
     /// `root` is made absolute once, here, so a later change of working
     /// directory cannot move the cache.
@@ -297,7 +300,10 @@ impl Cache {
         usage(&self.inner)
     }
 
-    /// Removes expired and invalid entries and leftover temporary files. When
+    /// Removes expired and invalid entries and leftover temporary files.
+    /// It reads every entry while it holds the maintenance lock, so every
+    /// [`Cache::lock`] waits for it; lower `hard_bytes` to shorten that pause.
+    /// When
     /// the cache was over a hard cap, it then removes the oldest entries until
     /// both targets hold.
     ///
@@ -553,6 +559,7 @@ fn prune(inner: &Inner, wait: Wait) -> Result<Prune, Error> {
             TryLockError::Error(error) => Error::io(&error),
         })?,
     }
+    let _ = private::remove(&inner.root.join(PRUNE_PENDING));
     let entries = inner.root.join(ENTRIES);
     private::ensure_dir(&entries)?;
     let before = usage(inner)?;
@@ -603,7 +610,6 @@ fn prune(inner: &Inner, wait: Wait) -> Result<Prune, Error> {
     }
     private::sync_dir(&entries)?;
     outcome.locks_removed = remove_orphan_locks(inner)?;
-    private::remove(&inner.root.join(PRUNE_PENDING))?;
     outcome.after_entries = entries_left;
     outcome.after_bytes = bytes_left;
     Ok(outcome)
