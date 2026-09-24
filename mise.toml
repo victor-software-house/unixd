@@ -1,6 +1,10 @@
 [settings]
 lockfile = true
 
+# Every tool this root declares must match mise.lock or mise.<env>.lock.
+[tool_config]
+locked = true
+
 [task_config]
 includes = [
   "git::https://github.com/victor-software-house/qctl.git//tasks/q?ref=v0.4.4",

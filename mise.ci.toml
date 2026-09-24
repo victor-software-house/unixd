@@ -4,7 +4,3 @@
 [env]
 CARGO_INCREMENTAL = "0"
 CARGO_TERM_COLOR = "always"
-
-# CI caches a plain target/ with rust-cache, so mbx stays a local build-host tool.
-[tools]
-rust = { version = "nightly", components = "rustfmt,clippy", mr_boxington = false }
