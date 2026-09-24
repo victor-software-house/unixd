@@ -10,8 +10,6 @@ use rustix::fs::{Mode, OFlags};
 
 use crate::Error;
 
-/// Creates `root` and its parents when missing, then requires it to be a
-/// private directory.
 pub(crate) fn ensure_root(root: &Path) -> Result<(), Error> {
     match fs::symlink_metadata(root) {
         Ok(_) => validate_root(root),
@@ -23,8 +21,7 @@ pub(crate) fn ensure_root(root: &Path) -> Result<(), Error> {
     }
 }
 
-/// Requires `root` to be a real directory owned by this user, and makes it
-/// `0700`.
+/// Refuses a symlink or another user's directory, then sets `0700`.
 pub(crate) fn validate_root(root: &Path) -> Result<(), Error> {
     let metadata = fs::symlink_metadata(root).map_err(|_| Error::UnsafeRoot)?;
     if !metadata.file_type().is_dir() || !owned(&metadata) {
@@ -33,8 +30,7 @@ pub(crate) fn validate_root(root: &Path) -> Result<(), Error> {
     set_mode(root, 0o700)
 }
 
-/// Creates `path` as a `0700` directory, or requires the existing one to be a
-/// real directory owned by this user.
+/// Refuses a symlink or another user's directory.
 pub(crate) fn ensure_dir(path: &Path) -> Result<(), Error> {
     match fs::symlink_metadata(path) {
         Ok(metadata) if metadata.file_type().is_dir() && owned(&metadata) => set_mode(path, 0o700),
@@ -65,8 +61,7 @@ pub(crate) fn open_lock(path: &Path) -> Result<File, Error> {
     Ok(file)
 }
 
-/// The metadata of a regular file at `path`, or `None` when nothing is there.
-/// Anything else at `path` is removed and reported as `None`.
+/// Removes anything at `path` that is not a regular file.
 pub(crate) fn regular(path: &Path) -> Result<Option<Metadata>, Error> {
     match fs::symlink_metadata(path) {
         Ok(metadata) if metadata.file_type().is_file() => Ok(Some(metadata)),
@@ -79,7 +74,6 @@ pub(crate) fn regular(path: &Path) -> Result<Option<Metadata>, Error> {
     }
 }
 
-/// Reads a regular file, or returns `None` when there is none.
 pub(crate) fn read(path: &Path) -> Result<Option<Vec<u8>>, Error> {
     if regular(path)?.is_none() {
         return Ok(None);
@@ -104,7 +98,7 @@ pub(crate) fn remove(path: &Path) -> Result<(), Error> {
     }
 }
 
-/// Flushes a directory, so a rename inside it survives a crash.
+/// Makes a rename inside the directory survive a crash.
 pub(crate) fn sync_dir(path: &Path) -> Result<(), Error> {
     File::open(path)
         .and_then(|directory| directory.sync_all())

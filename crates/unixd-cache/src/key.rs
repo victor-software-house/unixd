@@ -5,14 +5,11 @@ use sha2::{Digest as _, Sha256};
 
 use crate::Error;
 
-/// Version of the entry file layout. It is hashed into every key, so changing
-/// the layout starts from an empty cache instead of misreading old files.
+/// Entry file layout version. Hashed into every key, so a layout change
+/// misses old files instead of misreading them.
 pub(crate) const FORMAT: u8 = 1;
 
-/// A cache key: a namespace and a digest of named parts.
-///
-/// Two keys are equal when their namespaces and parts are equal, whatever
-/// order the parts were added in.
+/// A namespace and a digest of named parts. Part order does not matter.
 #[derive(Clone, PartialEq, Eq)]
 pub struct Key {
     namespace: String,

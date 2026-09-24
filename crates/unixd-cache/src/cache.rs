@@ -506,8 +506,8 @@ fn read<T: DeserializeOwned>(inner: &Inner, key: &Key, locked: bool) -> Result<L
     )
 }
 
-/// Reports a miss for an unusable entry, and removes it, best effort, when
-/// the key lock is held.
+/// Removes the entry only under the key lock: unlocked, a writer may be
+/// replacing it.
 fn discard<T>(path: &Path, locked: bool) -> Lookup<T> {
     if locked {
         let _ = private::remove(path);
@@ -532,17 +532,14 @@ fn write_atomic(inner: &Inner, digest: &str, bytes: &[u8]) -> Result<(), Error> 
     private::sync_dir(&entries)
 }
 
-/// Whether a prune waits for the exclusive maintenance lock.
 #[derive(Clone, Copy)]
 enum Wait {
-    /// Block until every key lock is released.
     Block,
-    /// Give up with [`Error::Lock`] when any key lock is held.
     Skip,
 }
 
-/// Clears the pending marker once it holds the lock, before the scan, so a
-/// prune skipped during the scan leaves a fresh one.
+/// Clears the pending marker before the scan, so a prune skipped meanwhile
+/// leaves a fresh one.
 fn prune(inner: &Inner, wait: Wait) -> Result<Prune, Error> {
     private::validate_root(&inner.root)?;
     let maintenance = private::open_lock(&inner.root.join(MAINTENANCE))?;
@@ -609,15 +606,14 @@ fn prune(inner: &Inner, wait: Wait) -> Result<Prune, Error> {
     Ok(outcome)
 }
 
-/// Runs a skipped prune if a marker records one, without waiting for locks.
 fn retry_pending_prune(inner: &Inner) {
     if fs::symlink_metadata(inner.root.join(PRUNE_PENDING)).is_ok() {
         let _ = prune(inner, Wait::Skip);
     }
 }
 
-/// Removes lock files whose entry is gone. Safe only under the exclusive
-/// maintenance lock, which no key lock holder can overlap.
+/// Safe only under the exclusive maintenance lock, which no key lock holder
+/// can overlap.
 fn remove_orphan_locks(inner: &Inner) -> Result<u64, Error> {
     let locks = inner.root.join(LOCKS);
     private::ensure_dir(&locks)?;
@@ -638,9 +634,7 @@ fn remove_orphan_locks(inner: &Inner) -> Result<u64, Error> {
     Ok(removed)
 }
 
-/// When a still-usable entry was stored, or `None` when it is expired,
-/// corrupt, or not the entry its file name claims. Streams the header and
-/// skips the value, so memory stays small.
+/// Streams the header and skips the value, so memory stays small.
 fn live_stored_at(path: &Path, now: u64) -> Option<u64> {
     let file = File::open(path).ok()?;
     let header = serde_json::from_reader::<_, Header>(BufReader::new(file)).ok()?;
@@ -677,7 +671,6 @@ fn entry_path(inner: &Inner, digest: &str) -> PathBuf {
     inner.root.join(ENTRIES).join(format!("{digest}.json"))
 }
 
-/// The digest an entry file is named after, or `None` for any other file.
 fn entry_digest(path: &Path) -> Option<&str> {
     path.file_name()?
         .to_str()?

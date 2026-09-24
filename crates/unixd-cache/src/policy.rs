@@ -2,10 +2,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-/// Where an entry's horizons came from.
-///
-/// It is stored with the entry, so an entry written under one regime is not
-/// reinterpreted under another.
+/// Where an entry's horizons came from. Stored with the entry.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Source {
@@ -15,15 +12,12 @@ pub enum Source {
     CacheControl,
 }
 
-/// How long a stored value is fresh, and how much longer it may be served
-/// after an upstream failure.
+/// How long a value is fresh, and how long it may then serve stale.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Policy {
-    /// Time after storing during which the value is served without asking
-    /// upstream.
+    /// Served without asking upstream.
     pub fresh: Duration,
-    /// Time after `fresh` ends during which the value may still be served when
-    /// the upstream request fails with a [`Failure`] that
+    /// After `fresh`, served only when the upstream failure
     /// [serves stale](Failure::serves_stale).
     pub stale_if_error: Duration,
     /// Where these two durations came from.
@@ -70,10 +64,8 @@ pub enum Failure {
 impl Failure {
     /// Whether a stale entry may answer the request instead of this failure.
     ///
-    /// Only transient failures serve stale: a timeout, a network failure,
-    /// HTTP 429, and HTTP 5xx. An authorization failure, a missing resource,
-    /// or a malformed response means the stored value may be wrong, so those
-    /// never serve stale.
+    /// Only transient failures do: timeout, network, 429, and 5xx. Any other
+    /// failure may mean the stored value is wrong.
     #[must_use]
     pub const fn serves_stale(self) -> bool {
         match self {
