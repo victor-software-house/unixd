@@ -18,18 +18,19 @@ Tokio onto the second consumer's direct path and a cache onto the first.
 ## Status
 
 Unimplemented. The repository carries the design and the scaffold; both
-crates are `0.0.0` with empty public surfaces. Read
+crates are `0.0.0` with empty public surfaces. The code will be extracted
+from a working consumer daemon and cache, slice by slice. Read
 [`docs/design/daemon-and-cache.md`](docs/design/daemon-and-cache.md) for the
 contract before adding code.
 
 ## Scope
 
-Unix-first, macOS first. Version one ships service activation only, behind an
-`Activation` trait so a self-spawning implementation and a systemd
-`LISTEN_FDS` implementation can arrive without touching a call site.
+macOS on Apple Silicon and Linux. The platform service manager owns the
+socket and starts the daemon on demand: launchd on macOS, `systemd --user` on
+Linux. The daemon never spawns itself.
 
-Not in scope: a self-spawn fallback, systemd, Linux support, an HTTP adapter,
-pub/sub, a mailbox, a durable message queue, or a heartbeat.
+Not in scope: self-spawn, other platforms, an HTTP adapter, pub/sub, a
+mailbox, a durable message queue, or a heartbeat.
 
 ## License
 

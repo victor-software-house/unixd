@@ -1,7 +1,8 @@
 # Design: a socket-activated per-user daemon, and a cache in front of it
 
-- **Status:** Proposed
+- **Status:** Proposed, revised 2026-09-24
 - **Scope:** both crates in this workspace
+- **Platforms:** macOS on Apple Silicon and Linux. Nothing else.
 
 ## What this decides
 
@@ -9,12 +10,12 @@ Two crates, separately selectable:
 
 | Crate | Owns | Async runtime |
 |:--|:--|:--|
-| `unixd` | Activation, listener ownership, peer identity, bounded framing, lifecycle, client transport | Tokio |
+| `unixd` | Activation, listener ownership, peer identity, bounded framing, lifecycle, unit install, client transport | Tokio |
 | `unixd-cache` | Freshness, stale-if-error policy, cross-process locks, atomic writes, bounds, prune | None |
 
 ## Why two crates rather than one
 
-The two known consumers need different halves.
+The two known consumer shapes need different halves.
 
 1. A local message broker needs the runtime shell and is explicitly forbidden
    from holding a refreshed cache of anything. It takes `unixd` alone.
@@ -26,6 +27,31 @@ One crate containing both would force a Tokio dependency on the direct path of
 consumer 2 and a cache module on consumer 1. Neither is acceptable, so the
 split is a requirement.
 
+## Where the code comes from
+
+The first consumer already runs a working daemon and cache of its own: a
+Unix-socket server with drain and idle exit, a same-UID peer check,
+newline-delimited JSON frames capped at 16 MiB, and a disk cache with fresh and
+stale horizons, per-key file locks, atomic writes, and prune. Its tests cover
+each of these.
+
+unixd is extracted from that code, not written fresh. Each slice moves one
+proven piece, generalizes it over the consumer's own types, and holds it to
+this document. Where the two disagree, this document wins and the consumer
+changes when it adopts the crate.
+
+The consumer's code is tied to its domain in two ways the extraction removes:
+
+1. Transport returns the consumer's error type and dispatches the consumer's
+   operations. `unixd` takes a request handler trait and a caller-owned error.
+2. The cache names each cached request kind in one enum and has a lookup and a
+   store method per kind. `unixd-cache` takes caller-built keys and a caller
+   policy, and stores any serializable value.
+
+The one piece that is not extracted is how the daemon starts. The consumer
+spawns its own daemon behind a start lock. That is the design this crate
+rejects; see the next section.
+
 ## Optional presentation seam
 
 Neither crate renders anything. A consumer that wants a daemon status or cache
@@ -34,58 +60,81 @@ layer and have these crates emit documents rather than strings. That dependency
 must stay optional and must not pull a terminal renderer, a serializer, or an
 argument parser into either crate.
 
-## Layer A — `unixd`
+## Layer A: `unixd`
 
-### Activation is a trait with one implementation
+### Activation: the platform service manager owns the socket
 
-```rust
-pub trait Activation {
-    /// Yield the listening socket this process should serve.
-    fn listener(&self) -> Result<ServingListener, ActivationError>;
-}
-```
+The daemon never starts itself. The platform service manager creates the
+socket, listens on it, and starts the daemon on the first connection:
 
-Version one ships **`InheritedListener` only**: the socket is created and owned
-by the platform service manager and handed to the process as an inherited file
-descriptor. On macOS that is `launchd` socket activation.
+| Platform | Manager | Unit |
+|:--|:--|:--|
+| macOS | `launchd`, per-user agent | a LaunchAgent plist with a `Sockets` entry |
+| Linux | `systemd --user` | a `.socket` unit with `Accept=no` and a matching `.service` |
 
-The trait exists so a self-spawning implementation and a systemd `LISTEN_FDS`
-implementation can be added without touching any call site. They are **not** in
-version one. Nothing in the crate branches on which implementation is active.
+Self-spawn is out, not deferred. It needs a start lock, a readiness poll,
+stale-socket adoption, and convergence tests for concurrent first clients.
+Every one of those is a race window. The first consumer's own start-lock tests
+fail intermittently, and in one run the lock let two daemons spawn. A
+self-spawned daemon also inherits the launching client's working directory;
+when that directory is removed, the daemon is stranded. Activation removes the
+whole class, because no client process is ever the parent.
 
-### Why activation, not self-spawn
+### How the daemon receives its socket
 
-Self-spawn requires a start lock, a readiness poll, stale-socket adoption under
-a second lock, and convergence tests for concurrent first clients. Activation
-deletes all four. It also removes the failure that motivated this work:
+Both managers can hand the listening socket to the process on standard input:
 
-> A self-spawned daemon inherits the launching client's working directory. When
-> that directory is later removed, the daemon is stranded and every subsequent
-> request fails.
+- launchd: `inetdCompatibility` with `Wait = true`;
+- systemd: `StandardInput=socket` on a single-socket `Accept=no` unit.
 
-Activation cannot reproduce it, because no client process is the parent. Two
-guards make the property explicit rather than incidental:
+The daemon then takes it with safe standard-library calls only:
+`stdin().as_fd().try_clone_to_owned()`, `UnixListener::from`,
+`set_nonblocking(true)`, and `tokio::net::UnixListener::from_std`. No FFI and no
+`unsafe`, so the workspace `unsafe_code = "forbid"` stands.
 
-1. the serve entry point changes its working directory to `/` before binding;
+This path is chosen over the named-socket APIs for one reason. No maintained
+crate hands a macOS caller an owned listener from `launch_activate_socket`
+without the caller writing `unsafe` to adopt a raw descriptor. On Linux,
+`listenfd` does return an owned listener, and it is the fallback if the stdin
+path fails its live proof. launchd's man page asks new jobs to avoid
+`inetdCompatibility`; the live proof in slice 1 decides whether that warning
+matters here.
+
+`Activation` stays a trait with one implementation per platform. Nothing
+outside the activation module branches on the platform.
+
+### Two guards against a stranded working directory
+
+Activation already prevents the failure. Two guards make that explicit rather
+than incidental:
+
+1. the serve entry point changes its working directory to `/` before it takes
+   the listener;
 2. runtime and cache roots are resolved to absolute paths once at startup and
    never re-resolved against a relative base.
 
-Both are asserted by the regression in verification step 7.
-
 ### Installation contract
 
-- one per-user socket, `SockPathMode = 0600`, in a `0700` directory;
-- `KeepAlive = false`, so the service starts on first connection and exits when
-  idle;
+`unixd` writes the units itself. `service-manager` cannot express a systemd
+socket and service pair, and no other maintained crate can either.
+
+- macOS: write the plist to `~/Library/LaunchAgents/`, then
+  `launchctl bootstrap gui/<uid>`; remove with `launchctl bootout`. Never the
+  legacy `load` and `unload`.
+- Linux: write the two units to `~/.config/systemd/user/`, then
+  `systemctl --user daemon-reload` and `systemctl --user enable --now <name>.socket`.
+- one per-user socket, mode `0600`, in a `0700` directory;
+- launchd `KeepAlive` unset, so the job runs only on demand;
 - service label and socket name carry the protocol major version;
 - install and uninstall are idempotent and remove only state this identity owns.
 
 ### Peer identity
 
 Every accepted connection is checked for the same effective UID as the serving
-process, using the platform peer-credential call, before any frame is read. A
-mismatch closes the connection without a reply and without a log entry
-containing the peer's identity.
+process, with `tokio::net::UnixStream::peer_cred()`, before any frame is read.
+It uses `getpeereid` on macOS and `SO_PEERCRED` on Linux. A mismatch closes the
+connection without a reply and without a log entry containing the peer's
+identity.
 
 ### Framing
 
@@ -102,23 +151,71 @@ the idle timer:
 1. stop accepting new connections;
 2. allow in-flight requests a bounded grace period;
 3. abort what remains;
-4. remove socket and metadata **only** when owned by the exiting process.
+4. exit 0.
 
-Idle timeout is configurable and disableable. A PID file, where one exists, is
-informational and is never the liveness authority.
+The manager owns the socket, so the daemon never unlinks the socket path and
+never calls `shutdown(2)` on the listener. Connections that arrive after step 1
+wait in the manager's queue and start the next instance.
 
-## Layer B — `unixd-cache`
+Idle timeout is configurable and disableable. There is no PID file.
+
+Both managers limit restarts, and an idle exit counts as a stop:
+
+- launchd documents a `ThrottleInterval` of 10 s between launches. Measured on
+  macOS, socket-triggered relaunches after an idle exit were not delayed by it
+  (17 ms), so the installer still sets it but no request waits on it;
+- systemd fails the service after `StartLimitBurst` starts (5 per 10 s by
+  default), and the socket after `TriggerLimitBurst` activations (20 per 2 s by
+  default for `Accept=no`). A socket failed this way refuses every connection
+  until `systemctl --user reset-failed`. Measured on Linux with a 1 s idle
+  timeout and a connection every 0.9 to 1.2 s: under the defaults the service
+  hit its start limit after 10 starts, the socket entered `failed`, and 6 of 25
+  connections were refused. With `StartLimitBurst=100` in a 10 s interval, all
+  25 connections succeeded across 14 starts, including connections that
+  arrived while the daemon was exiting.
+
+The default idle timeout must be long enough that neither limit is reached in
+normal use. The installer sets both limits explicitly rather than inheriting
+the defaults.
+
+### Measured activation
+
+The throwaway `examples/activation.rs` was run on 2026-09-24 under both
+managers, with a 5 s idle timeout.
+
+| # | Observation | macOS, launchd | Linux, systemd 259 `--user` |
+|--:|:--|:--|:--|
+| 1 | Socket mode, before any connection | `srw-------`, no process | `srw-------` in a `drwx------` directory, no process |
+| 2 | First request, including the start | 490 ms | 12 ms |
+| 3 | Second request | same process | same process |
+| 4 | 7 s later | no process, socket present | no process, socket present |
+| 5 | Request right after the idle exit | new process, 17 ms | new process, 14 ms |
+| 6 | Request after 16 s idle | new process, 18 ms | new process, 28 ms |
+| 7 | Manager state afterwards | `runs = 3`, last exit code 0 | 3 starts, service and socket `success` |
+
+No connection was refused on either platform, so the stdin listener stands and
+the `listenfd` fallback is not needed.
+
+## Layer B: `unixd-cache`
 
 Synchronous, no reactor, no database. Versioned validated JSON envelopes on
-disk; directories `0700`, files `0600`.
+disk; directories `0700`, files `0600`. No existing crate covers stale-if-error,
+so the policy is this crate's own code; the pieces under it come from `std` and
+one small crate.
 
 ### Freshness has two independent horizons
 
 Each entry stores `fresh_until` and `stale_until` as separate absolute
 timestamps, plus the provenance of the policy that set them. Policy comes either
-from a caller-supplied default or from a response-derived directive such as
-`Cache-Control`; provenance records which, so an entry written under one regime
-is not silently reinterpreted under another.
+from a caller-supplied default or from a response `Cache-Control` directive;
+provenance records which, so an entry written under one regime is not silently
+reinterpreted under another.
+
+`Cache-Control` parsing sits behind an optional `http` feature built on
+`http-cache-semantics`, which is synchronous. That crate does not parse
+`stale-if-error`, so this crate reads that one directive itself. Without the
+feature, the caller passes an already-parsed policy and the crate has no HTTP
+dependency.
 
 A schema-version bump migrates existing entries to **stale-only**. It neither
 wipes them nor treats them as fresh.
@@ -153,10 +250,11 @@ request id. Cache identity is about *what was fetched*, never *who asked* or
 
 - validate on every read; a corrupt or schema-invalid entry is a miss and is
   removed best-effort;
-- one file lock per key, held across direct and daemon processes alike;
+- one file lock per key, `std::fs::File::lock`, held across direct and daemon
+  processes alike;
 - one maintenance lock for prune and clear;
-- write to a temporary file in the same directory, `fsync` the file, rename
-  atomically, then `fsync` the parent directory;
+- write to a temporary file in the same directory with `tempfile`, `fsync` it,
+  rename atomically with `persist`, then `fsync` the parent directory;
 - coalescing is a trait the daemon layer implements in process; the direct path
   binds a no-op implementation.
 
@@ -173,24 +271,28 @@ from it.
 
 ## Non-goals
 
-No self-spawn fallback, no systemd activation, no Linux support, no HTTP
-adapter, no pub/sub, no mailbox, no durable message queue, no heartbeat, and no
-shared cache across consumers. The activation trait leaves room for the first
-two; nothing else here anticipates a consumer that does not exist.
+No self-spawn, no platform other than macOS and Linux, no HTTP adapter, no
+pub/sub, no mailbox, no durable message queue, no heartbeat, no PID file, and no
+shared cache across consumers.
 
 ## Sequencing
 
 Each slice is one pull request that leaves the repository releasable.
 
-1. **Scaffold.** Workspace, two member crates, lint tables, CI verify lane. No
-   behaviour.
-2. **`unixd-cache`.** Policy types, key construction, locks, atomic write, the
-   stale matrix, bounds, prune. Fully testable without a socket.
-3. **`unixd` transport.** Framing, envelopes, peer identity, client.
-4. **`unixd` activation and lifecycle.** `InheritedListener`, install and
-   uninstall, drain, idle exit.
+1. **Activation proof.** A throwaway example daemon receives its socket on
+   stdin from launchd on macOS and from systemd on Linux, serves, exits idle,
+   and is relaunched by the next connection. This decides the activation path
+   before any crate code depends on it.
+2. **`unixd-cache`.** Extract the consumer's cache: policy types, key
+   construction, locks, atomic write, the stale matrix, bounds, prune.
+3. **`unixd` transport.** Extract framing, envelopes, the peer check, and the
+   client, over a handler trait.
+4. **`unixd` activation and lifecycle.** The stdin listener, unit install and
+   uninstall on both platforms, drain, idle exit.
 5. **Coalescing seam.** The trait, the in-process daemon implementation, the
    direct no-op, and the cross-mode equivalence test.
+6. **First consumer adopts.** The consumer replaces its own daemon, transport,
+   and cache with these crates, and deletes its self-spawn code.
 
 ## Verification
 
@@ -198,25 +300,22 @@ Each step names the check that proves it.
 
 | # | Step | Proof |
 |--:|:--|:--|
-| 1 | Scaffold | `cargo metadata` lists both members; `cargo tree -p unixd-cache` contains no `tokio` |
-| 2 | Framing | round-trip plus an oversize frame rejected without buffering to its end |
-| 3 | Peer identity | real socket, same-UID accepted; a non-matching UID closed with no reply |
-| 4 | Activation | real service bootstrap in a scratch domain; two concurrent first clients converge on one process |
+| 1 | Activation proof | on macOS and on Linux: the first connection starts the daemon, it serves, exits after the idle timeout, and the next connection starts it again with no connection refused |
+| 2 | Scaffold | `cargo tree -p unixd-cache` contains no `tokio` |
+| 3 | Framing | round-trip plus an oversize frame rejected without buffering to its end |
+| 4 | Peer identity | real socket, same-UID accepted; a non-matching UID closed with no reply |
 | 5 | Stale matrix | table test, four serve-stale cases and five never-stale cases, no case unlisted |
 | 6 | Atomicity | interrupt between temp write and rename; the previous entry is still readable and valid |
 | 7 | Working-directory regression | start the service, remove the requesting client's working directory, prove the next request succeeds |
 | 8 | Prune | cross a hard cap, assert the low-water target is reached and no unexpired entry was lost |
 | 9 | Cross-mode equivalence | the same request through the daemon client and the direct client yields identical normalized output and identical cache state |
+| 10 | Install round-trip | install, connect, uninstall, and install again on both platforms; the second install leaves no duplicate unit |
 
 Step 7 is the regression for the reported failure and must exist before either
 crate is published.
 
 ## Open questions
 
-1. Whether `unixd-cache` should parse HTTP response cache directives itself, or
-   take an already-parsed directive from the caller. Taking the parsed directive
-   keeps the crate transport-free; parsing would pull an HTTP dependency into a
-   crate that otherwise has none.
-2. Whether the envelope schema is hand-written in both Rust and any non-Rust
+1. Whether the envelope schema is hand-written in both Rust and any non-Rust
    client, proven by shared golden fixtures, or generated from one source. Start
    with fixtures; revisit only when drift is measured rather than predicted.
