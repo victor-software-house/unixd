@@ -166,11 +166,15 @@ pub(crate) fn read(path: &Path) -> Result<Option<(Vec<u8>, Metadata)>, Error> {
 /// A crash before the link leaves that temporary file behind; the tag is
 /// written once per cache, so the case is left alone.
 pub(crate) fn create_private(dir: &Path, name: &str, bytes: &[u8]) -> Result<(), Error> {
+    let target = dir.join(name);
+    if fs::symlink_metadata(&target).is_ok() {
+        return Ok(());
+    }
     let mut file = tempfile::Builder::new()
         .tempfile_in(dir)
         .map_err(|error| Error::io(&error))?;
     file.write_all(bytes).map_err(|error| Error::io(&error))?;
-    match file.persist_noclobber(dir.join(name)) {
+    match file.persist_noclobber(target) {
         Ok(_) => Ok(()),
         Err(error) if error.error.kind() == io::ErrorKind::AlreadyExists => Ok(()),
         Err(error) => Err(Error::io(&error.error)),

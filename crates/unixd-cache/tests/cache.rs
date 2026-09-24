@@ -7,7 +7,7 @@
 
 use std::os::unix::fs::{PermissionsExt as _, symlink};
 use std::os::unix::net::UnixListener;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, mpsc};
@@ -739,25 +739,49 @@ fn default_root_is_a_per_user_cache_directory() {
     }
 }
 
-/// Runs itself in a child process with `HOME` changed, since a test may not
-/// set the environment of its own process.
+/// Runs itself in a child process with the environment changed, since a test
+/// may not set the environment of its own process. The child compares
+/// `default_root` with `UNIXD_CACHE_EXPECT`, where an empty value means `None`.
 #[test]
-fn default_root_refuses_an_empty_or_relative_home() {
-    const NAME: &str = "default_root_refuses_an_empty_or_relative_home";
-    if env::var_os("UNIXD_CACHE_CHILD").is_some() {
-        assert_eq!(unixd_cache::default_root("unixd-test"), None);
+fn default_root_ignores_an_empty_or_relative_base() {
+    const NAME: &str = "default_root_ignores_an_empty_or_relative_base";
+    if let Some(expect) = env::var_os("UNIXD_CACHE_EXPECT") {
+        let expect = (!expect.is_empty()).then(|| PathBuf::from(expect));
+        assert_eq!(unixd_cache::default_root("unixd-test"), expect);
         return;
     }
-    for home in ["", "relative/home"] {
-        let output = Command::new(env::current_exe().unwrap())
+    let mut cases = vec![("", None, ""), ("relative/home", None, "")];
+    if !cfg!(target_os = "macos") {
+        cases.push(("relative/home", Some("/xdg"), "/xdg/unixd-test"));
+    }
+    for (home, xdg, expect) in cases {
+        let mut child = Command::new(env::current_exe().unwrap());
+        child
             .args(["--exact", NAME])
-            .env("UNIXD_CACHE_CHILD", "1")
+            .env("UNIXD_CACHE_EXPECT", expect)
             .env("HOME", home)
-            .env_remove("XDG_CACHE_HOME")
-            .output()
-            .unwrap();
+            .env_remove("XDG_CACHE_HOME");
+        if let Some(xdg) = xdg {
+            child.env("XDG_CACHE_HOME", xdg);
+        }
+        let output = child.output().unwrap();
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(output.status.success(), "HOME={home:?}: {stdout}");
         assert!(stdout.contains("1 passed"), "HOME={home:?}: {stdout}");
     }
+}
+
+#[test]
+fn prune_removes_entries_over_a_lowered_size_ceiling() {
+    let root = tempfile::tempdir().unwrap();
+    let (cache, _) = open(root.path(), 1, Limits::default());
+    store(&cache, &key("large"), &"x".repeat(5000));
+    drop(cache);
+
+    let limits = Limits {
+        max_entry_bytes: 1000,
+        ..Limits::default()
+    };
+    let (cache, _) = open(root.path(), 1, limits);
+    assert_eq!(cache.prune().unwrap().expired_removed, 1);
 }

@@ -644,7 +644,9 @@ fn prune(inner: &Inner, wait: Wait) -> Result<Prune, Error> {
             continue;
         };
         let used_ms = modified_ms(&metadata);
-        let removed = if !live(&path, now, inner.limits.max_entry_bytes) {
+        let removed = if metadata.len() > inner.limits.max_entry_bytes
+            || !live(&path, now, inner.limits.max_entry_bytes)
+        {
             &mut outcome.expired_removed
         } else if now.saturating_sub(used_ms) > millis(inner.limits.unused_after) {
             &mut outcome.unused_removed
