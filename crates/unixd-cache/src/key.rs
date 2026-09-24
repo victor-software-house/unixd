@@ -146,8 +146,19 @@ fn hex(bytes: &[u8]) -> String {
     out
 }
 
+/// Splits camelCase at each lower-to-upper boundary, then lowercases and
+/// joins on `_`, so `accessToken` is checked as `access_token`.
 fn forbidden(name: &str) -> bool {
-    let name = name.to_ascii_lowercase().replace(['-', ' ', '.'], "_");
+    let mut split = String::with_capacity(name.len() + 4);
+    let mut previous_lower = false;
+    for character in name.chars() {
+        if character.is_ascii_uppercase() && previous_lower {
+            split.push('_');
+        }
+        previous_lower = character.is_ascii_lowercase() || character.is_ascii_digit();
+        split.push(character);
+    }
+    let name = split.to_ascii_lowercase().replace(['-', ' ', '.'], "_");
     FORBIDDEN_NAMES.contains(&name.as_str())
         || FORBIDDEN_SUBSTRINGS.iter().any(|word| name.contains(word))
         || name.split('_').any(|word| FORBIDDEN_WORDS.contains(&word))

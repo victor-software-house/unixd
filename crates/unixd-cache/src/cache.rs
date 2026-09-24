@@ -1,5 +1,5 @@
-use std::fs::{self, File};
-use std::io::Write as _;
+use std::fs::{self, File, TryLockError};
+use std::io::{BufReader, ErrorKind, Write as _};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -136,6 +136,8 @@ pub struct Prune {
     pub capacity_removed: u64,
     /// Temporary files left by writers that died mid-write.
     pub temporary_removed: u64,
+    /// Lock files whose entry no longer exists.
+    pub locks_removed: u64,
 }
 
 /// Entry count and total bytes on disk.
@@ -231,16 +233,17 @@ impl Cache {
 
     /// Reads `key` without taking its lock.
     ///
-    /// A corrupt, mismatched, or expired entry is removed and reads as
-    /// [`Lookup::Miss`]. A value that no longer deserializes into `T` counts
-    /// as corrupt.
+    /// A corrupt, mismatched, or expired entry reads as [`Lookup::Miss`] and is
+    /// left in place: a writer holding the key lock may replace it at any
+    /// moment, so only [`KeyLock::lookup`] and [`Cache::prune`] remove it. A
+    /// value that no longer deserializes into `T` counts as corrupt.
     ///
     /// # Errors
     ///
     /// [`Error::UnsafeRoot`] or [`Error::Io`] when the entry cannot be read
     /// safely.
     pub fn lookup<T: DeserializeOwned>(&self, key: &Key) -> Result<Lookup<T>, Error> {
-        read(&self.inner, key)
+        read(&self.inner, key, false)
     }
 
     /// Takes the lock for `key`, blocking until no other process or thread
@@ -287,17 +290,21 @@ impl Cache {
     /// the cache was over a hard cap, it then removes the oldest entries until
     /// both targets hold.
     ///
-    /// Waits for every holder of a key lock to finish.
+    /// It also removes lock files whose entry is gone. It waits for every
+    /// holder of a key lock to finish, so a thread that holds a [`KeyLock`]
+    /// must drop it before calling this.
     ///
     /// # Errors
     ///
     /// [`Error::Lock`] when the maintenance lock cannot be taken, and
     /// [`Error::Io`] when a file cannot be removed.
     pub fn prune(&self) -> Result<Prune, Error> {
-        prune(&self.inner)
+        prune(&self.inner, Wait::Block)
     }
 
-    /// Removes every entry. Waits for every holder of a key lock to finish.
+    /// Removes every entry and lock file. It waits for every holder of a key
+    /// lock to finish, so a thread that holds a [`KeyLock`] must drop it
+    /// before calling this.
     ///
     /// # Errors
     ///
@@ -312,7 +319,13 @@ impl Cache {
         for item in fs::read_dir(&entries).map_err(|error| Error::io(&error))? {
             private::remove(&item.map_err(|error| Error::io(&error))?.path())?;
         }
-        private::sync_dir(&entries)
+        private::sync_dir(&entries)?;
+        let locks = self.inner.root.join(LOCKS);
+        private::ensure_dir(&locks)?;
+        for item in fs::read_dir(&locks).map_err(|error| Error::io(&error))? {
+            private::remove(&item.map_err(|error| Error::io(&error))?.path())?;
+        }
+        private::sync_dir(&locks)
     }
 }
 
@@ -339,11 +352,14 @@ impl KeyLock {
     /// Reads the locked key. Another caller may have stored it while this one
     /// waited for the lock.
     ///
+    /// A corrupt, mismatched, or expired entry is removed and reads as
+    /// [`Lookup::Miss`].
+    ///
     /// # Errors
     ///
     /// As [`Cache::lookup`].
     pub fn lookup<T: DeserializeOwned>(&self) -> Result<Lookup<T>, Error> {
-        read(&self.inner, &self.key)
+        read(&self.inner, &self.key, true)
     }
 
     /// Stores `value` atomically under `policy`, then releases the lock.
@@ -351,7 +367,9 @@ impl KeyLock {
     /// Store only a successful, normalized response: there is no negative
     /// caching. A reader sees the previous entry or this one, never a partial
     /// file. When the write takes the cache over a hard cap, the cache is
-    /// pruned after the lock is released.
+    /// pruned after the lock is released. That prune does not wait: while any
+    /// key lock is held, in this process or another, it reports
+    /// [`Maintenance::Deferred`] and the next write over the cap tries again.
     ///
     /// # Errors
     ///
@@ -384,7 +402,7 @@ impl KeyLock {
                 if usage.entries > inner.limits.hard_entries
                     || usage.bytes > inner.limits.hard_bytes =>
             {
-                prune(&inner).map_or_else(Maintenance::Deferred, Maintenance::Pruned)
+                prune(&inner, Wait::Skip).map_or_else(Maintenance::Deferred, Maintenance::Pruned)
             }
             Ok(_) => Maintenance::NotNeeded,
             Err(error) => Maintenance::Deferred(error),
@@ -434,28 +452,28 @@ struct Value<T> {
     value: T,
 }
 
-fn read<T: DeserializeOwned>(inner: &Inner, key: &Key) -> Result<Lookup<T>, Error> {
+fn read<T: DeserializeOwned>(inner: &Inner, key: &Key, locked: bool) -> Result<Lookup<T>, Error> {
     private::ensure_dir(&inner.root.join(ENTRIES))?;
     let path = entry_path(inner, key.digest());
     let Some(bytes) = private::read(&path)? else {
         return Ok(Lookup::Miss);
     };
     let Ok(header) = serde_json::from_slice::<Header>(&bytes) else {
-        return Ok(discard(&path));
+        return Ok(discard(&path, locked));
     };
     if header.schema > inner.schema {
         return Ok(Lookup::Miss);
     }
     if !header.consistent() || header.digest != key.digest() || header.namespace != key.namespace()
     {
-        return Ok(discard(&path));
+        return Ok(discard(&path, locked));
     }
     let now = inner.clock.now_ms();
     if now > header.stale_until_ms {
-        return Ok(discard(&path));
+        return Ok(discard(&path, locked));
     }
     let Ok(Value { value }) = serde_json::from_slice::<Value<T>>(&bytes) else {
-        return Ok(discard(&path));
+        return Ok(discard(&path, locked));
     };
     let cached = Cached {
         value,
@@ -472,10 +490,13 @@ fn read<T: DeserializeOwned>(inner: &Inner, key: &Key) -> Result<Lookup<T>, Erro
     )
 }
 
-/// Removes an unusable entry and reports a miss. Removal is best effort: a
-/// failure leaves a file the next prune removes.
-fn discard<T>(path: &Path) -> Lookup<T> {
-    let _ = private::remove(path);
+/// Reports a miss for an unusable entry, and removes it when the key lock is
+/// held. Removal is best effort: a failure leaves a file the next prune
+/// removes.
+fn discard<T>(path: &Path, locked: bool) -> Lookup<T> {
+    if locked {
+        let _ = private::remove(path);
+    }
     Lookup::Miss
 }
 
@@ -496,10 +517,25 @@ fn write_atomic(inner: &Inner, digest: &str, bytes: &[u8]) -> Result<(), Error> 
     private::sync_dir(&entries)
 }
 
-fn prune(inner: &Inner) -> Result<Prune, Error> {
+/// Whether a prune waits for the exclusive maintenance lock.
+#[derive(Clone, Copy)]
+enum Wait {
+    /// Block until every key lock is released.
+    Block,
+    /// Give up with [`Error::Lock`] when any key lock is held.
+    Skip,
+}
+
+fn prune(inner: &Inner, wait: Wait) -> Result<Prune, Error> {
     private::validate_root(&inner.root)?;
     let maintenance = private::open_lock(&inner.root.join(MAINTENANCE))?;
-    maintenance.lock().map_err(|_| Error::Lock)?;
+    match wait {
+        Wait::Block => maintenance.lock().map_err(|_| Error::Lock)?,
+        Wait::Skip => maintenance.try_lock().map_err(|error| match error {
+            TryLockError::WouldBlock => Error::Lock,
+            TryLockError::Error(error) => Error::io(&error),
+        })?,
+    }
     let entries = inner.root.join(ENTRIES);
     private::ensure_dir(&entries)?;
     let before = usage(inner)?;
@@ -549,16 +585,45 @@ fn prune(inner: &Inner) -> Result<Prune, Error> {
         }
     }
     private::sync_dir(&entries)?;
+    outcome.locks_removed = remove_orphan_locks(inner)?;
     outcome.after_entries = entries_left;
     outcome.after_bytes = bytes_left;
     Ok(outcome)
 }
 
+/// Removes lock files whose entry is gone.
+///
+/// Called only under the exclusive maintenance lock. Every key lock is taken
+/// after a shared maintenance lock, so no process holds or is opening a key
+/// lock file here.
+fn remove_orphan_locks(inner: &Inner) -> Result<u64, Error> {
+    let locks = inner.root.join(LOCKS);
+    private::ensure_dir(&locks)?;
+    let mut removed = 0;
+    for item in fs::read_dir(&locks).map_err(|error| Error::io(&error))? {
+        let path = item.map_err(|error| Error::io(&error))?.path();
+        let entry = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .and_then(|name| name.strip_suffix(".lock"))
+            .map(|digest| entry_path(inner, digest));
+        if entry.is_none_or(|entry| !entry.exists()) {
+            private::remove(&path)?;
+            removed += 1;
+        }
+    }
+    private::sync_dir(&locks)?;
+    Ok(removed)
+}
+
 /// When a still-usable entry was stored, or `None` when it is expired,
 /// corrupt, or not the entry its file name claims.
+///
+/// The header is read through a buffered reader and the value is skipped
+/// without being kept, so memory stays small whatever the entry size.
 fn live_stored_at(path: &Path, now: u64) -> Option<u64> {
-    let bytes = fs::read(path).ok()?;
-    let header = serde_json::from_slice::<Header>(&bytes).ok()?;
+    let file = File::open(path).ok()?;
+    let header = serde_json::from_reader::<_, Header>(BufReader::new(file)).ok()?;
     (header.consistent()
         && entry_digest(path) == Some(header.digest.as_str())
         && now <= header.stale_until_ms)
@@ -575,7 +640,11 @@ fn usage(inner: &Inner) -> Result<Usage, Error> {
         if entry_digest(&path).is_none() {
             continue;
         }
-        let metadata = fs::symlink_metadata(&path).map_err(|error| Error::io(&error))?;
+        let metadata = match fs::symlink_metadata(&path) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == ErrorKind::NotFound => continue,
+            Err(error) => return Err(Error::io(&error)),
+        };
         if metadata.file_type().is_file() {
             usage.entries += 1;
             usage.bytes = usage.bytes.saturating_add(metadata.len());

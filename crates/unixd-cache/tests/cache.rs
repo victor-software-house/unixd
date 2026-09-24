@@ -90,6 +90,10 @@ fn credential_and_presentation_parts_are_refused() {
         "access-token",
         "api_key",
         "apiKey",
+        "accessToken",
+        "authToken",
+        "clientSecret",
+        "sessionCookie",
         "X-Api-Key",
         "secret",
         "Authorization",
@@ -107,7 +111,14 @@ fn credential_and_presentation_parts_are_refused() {
             "{name}"
         );
     }
-    for name in ["author", "query", "url", "tokenizer_model", "max_results"] {
+    for name in [
+        "author",
+        "query",
+        "url",
+        "tokenizer_model",
+        "tokenizerModel",
+        "max_results",
+    ] {
         assert!(Key::builder("search").part(name, "value").is_ok(), "{name}");
     }
 }
@@ -178,6 +189,8 @@ fn fresh_then_stale_then_miss() {
 
     clock.advance(3_600_000);
     assert_eq!(cache.lookup::<String>(&key).unwrap(), Lookup::Miss);
+    assert!(cache.entry_path(&key).exists());
+    assert_eq!(cache.prune().unwrap().expired_removed, 1);
     assert!(!cache.entry_path(&key).exists());
 }
 
@@ -229,10 +242,18 @@ fn corrupt_and_mismatched_entries_are_removed() {
     let key = key("rust");
     fs::write(cache.entry_path(&key), b"{not json").unwrap();
     assert_eq!(cache.lookup::<String>(&key).unwrap(), Lookup::Miss);
+    assert!(cache.entry_path(&key).exists());
+    assert_eq!(
+        cache.lock(&key).unwrap().lookup::<String>().unwrap(),
+        Lookup::Miss
+    );
     assert!(!cache.entry_path(&key).exists());
 
     store(&cache, &key, "text");
-    assert_eq!(cache.lookup::<u64>(&key).unwrap(), Lookup::Miss);
+    assert_eq!(
+        cache.lock(&key).unwrap().lookup::<u64>().unwrap(),
+        Lookup::Miss
+    );
     assert!(!cache.entry_path(&key).exists());
 
     let other = self::key("other");
@@ -434,4 +455,48 @@ fn relative_root_is_made_absolute() {
     let root = tempfile::tempdir().unwrap();
     let (cache, _) = open(root.path(), 1, Limits::default());
     assert!(cache.root().is_absolute());
+}
+
+#[test]
+fn store_over_the_cap_defers_while_another_key_is_locked() {
+    let root = tempfile::tempdir().unwrap();
+    let limits = Limits {
+        hard_entries: 1,
+        target_entries: 1,
+        ..Limits::default()
+    };
+    let (cache, _) = open(root.path(), 1, limits);
+    store(&cache, &key("a"), "a");
+    let held = cache.lock(&key("b")).unwrap();
+    let stored = store(&cache, &key("c"), "c");
+    assert!(matches!(
+        stored,
+        Stored::Written {
+            maintenance: Maintenance::Deferred(Error::Lock)
+        }
+    ));
+    drop(held);
+    assert_eq!(cache.prune().unwrap().after_entries, 1);
+}
+
+#[test]
+fn prune_and_clear_remove_lock_files() {
+    let root = tempfile::tempdir().unwrap();
+    let (cache, clock) = open(root.path(), 1, Limits::default());
+    let locks = root.path().join("locks");
+    cache
+        .lock(&key("expiring"))
+        .unwrap()
+        .store("x", Policy::new(Duration::from_millis(1), Duration::ZERO))
+        .unwrap();
+    store(&cache, &key("kept"), "kept");
+    drop(cache.lock(&key("never stored")).unwrap());
+    assert_eq!(fs::read_dir(&locks).unwrap().count(), 3);
+
+    clock.advance(10);
+    assert_eq!(cache.prune().unwrap().locks_removed, 2);
+    assert_eq!(fs::read_dir(&locks).unwrap().count(), 1);
+
+    cache.clear().unwrap();
+    assert_eq!(fs::read_dir(&locks).unwrap().count(), 0);
 }
