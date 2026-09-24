@@ -259,7 +259,8 @@ impl Cache {
     /// Hold it across "look up, fetch upstream, store" so concurrent callers
     /// for the same key fetch once.
     ///
-    /// It first retries a skipped prune (see [`Maintenance::Deferred`]).
+    /// It first retries a skipped prune (see [`Maintenance::Deferred`]), which
+    /// reads every entry before this returns.
     ///
     /// # Errors
     ///
@@ -634,7 +635,8 @@ fn remove_orphan_locks(inner: &Inner) -> Result<u64, Error> {
     Ok(removed)
 }
 
-/// Streams the header and skips the value, so memory stays small.
+/// Streams the header and discards the value, so memory stays small; the
+/// whole file is still read.
 fn live_stored_at(path: &Path, now: u64) -> Option<u64> {
     let file = File::open(path).ok()?;
     let header = serde_json::from_reader::<_, Header>(BufReader::new(file)).ok()?;
