@@ -24,20 +24,26 @@ const FORBIDDEN_WORDS: &[&str] = &[
     "apikey",
 ];
 
-/// Substrings that mark a credential across a separator, or run together
-/// with no separator or case change at all.
+/// Substrings that mark a credential. They are matched against the name with
+/// every separator removed, so `access_key`, `accessKey`, and `ACCESSKEY` all
+/// match `accesskey`.
 const FORBIDDEN_SUBSTRINGS: &[&str] = &[
-    "api_key",
-    "access_key",
-    "private_key",
+    "apikey",
+    "accesskey",
+    "privatekey",
+    "secretkey",
     "accesstoken",
     "authtoken",
     "apitoken",
     "bearertoken",
+    "idtoken",
     "refreshtoken",
     "sessiontoken",
+    "csrftoken",
+    "xsrftoken",
+    "sessionid",
     "clientsecret",
-    "secretkey",
+    "passphrase",
 ];
 
 /// Whole names that describe how or where a result is shown, or which request
@@ -184,7 +190,10 @@ fn forbidden(name: &str) -> bool {
         split.push(character);
     }
     let name = split.to_ascii_lowercase().replace(['-', ' ', '.'], "_");
+    let squashed = name.replace('_', "");
     FORBIDDEN_NAMES.contains(&name.as_str())
-        || FORBIDDEN_SUBSTRINGS.iter().any(|word| name.contains(word))
+        || FORBIDDEN_SUBSTRINGS
+            .iter()
+            .any(|word| squashed.contains(word))
         || name.split('_').any(|word| FORBIDDEN_WORDS.contains(&word))
 }

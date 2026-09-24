@@ -103,6 +103,12 @@ fn credential_and_presentation_parts_are_refused() {
         "APITOKEN",
         "SECRETKEY",
         "clientsecret",
+        "AWSSecretKey",
+        "JWTToken",
+        "PRIVATEKEY",
+        "accesskey",
+        "sessionId",
+        "passphrase",
         "X-Api-Key",
         "secret",
         "Authorization",
@@ -545,4 +551,16 @@ fn next_lock_runs_a_deferred_prune() {
     drop(cache.lock(&key("d")).unwrap());
     assert_eq!(cache.usage().unwrap().entries, 1);
     assert!(!root.path().join("prune.pending").exists());
+}
+
+#[test]
+fn a_marker_under_the_caps_is_cleared_by_the_next_lock() {
+    let root = tempfile::tempdir().unwrap();
+    let (cache, _) = open(root.path(), 1, Limits::default());
+    store(&cache, &key("a"), "a");
+    let marker = root.path().join("prune.pending");
+    fs::write(&marker, b"").unwrap();
+    drop(cache.lock(&key("b")).unwrap());
+    assert!(!marker.exists());
+    assert_eq!(cache.usage().unwrap().entries, 1);
 }

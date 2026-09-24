@@ -189,8 +189,10 @@ impl Cache {
     /// when that type changes: entries from a lower schema are then served
     /// only as [`Lookup::Stale`], and entries from a higher one are ignored.
     /// While two schema versions share a root, each binary overwrites the
-    /// other's entry on its next store of that key. That costs an extra
-    /// upstream fetch per switch and never serves the wrong schema.
+    /// other's entry on its next store of that key, at the cost of one
+    /// upstream fetch per switch. The older binary never reads a newer
+    /// entry. The newer binary reads an older entry as stale, so it serves
+    /// it only after an upstream failure that serves stale.
     ///
     /// `root` is made absolute once, here, so a later change of working
     /// directory cannot move the cache.
@@ -301,10 +303,11 @@ impl Cache {
     }
 
     /// Removes expired and invalid entries and leftover temporary files.
-    /// It reads every entry while it holds the maintenance lock, so every
-    /// [`Cache::lock`] waits for it; lower `hard_bytes` to shorten that pause.
-    /// When
-    /// the cache was over a hard cap, it then removes the oldest entries until
+    /// It opens and reads every entry while it holds the maintenance lock, so
+    /// every [`Cache::lock`] waits for it; [`Cache::lookup`] does not. The
+    /// pause grows with the entry count and total size, which `hard_entries`
+    /// and `hard_bytes` bound, loosely while prunes are deferred. When the
+    /// cache was over a hard cap, it then removes the oldest entries until
     /// both targets hold.
     ///
     /// It also removes lock files whose entry is gone. It waits for every
@@ -559,7 +562,21 @@ fn prune(inner: &Inner, wait: Wait) -> Result<Prune, Error> {
             TryLockError::Error(error) => Error::io(&error),
         })?,
     }
-    let _ = private::remove(&inner.root.join(PRUNE_PENDING));
+    let marker = inner.root.join(PRUNE_PENDING);
+    let _ = private::remove(&marker);
+    prune_locked(inner).inspect_err(|_| {
+        let _ = private::open_lock(&marker);
+    })
+}
+
+/// The prune itself, under the exclusive maintenance lock.
+///
+/// The caller removes the pending marker before this runs, so a writer that
+/// skips its prune during the scan leaves a fresh marker, and restores the
+/// marker when this fails. Marker writes are best effort: a leftover marker
+/// costs one extra prune, and a missing one waits for the next write over a
+/// cap.
+fn prune_locked(inner: &Inner) -> Result<Prune, Error> {
     let entries = inner.root.join(ENTRIES);
     private::ensure_dir(&entries)?;
     let before = usage(inner)?;
