@@ -39,7 +39,7 @@ impl Clock for SystemClock {
 }
 
 /// Size bounds. A write that takes the cache over a hard cap prunes it down to
-/// the targets.
+/// the targets. A target above its hard cap acts as the hard cap.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Limits {
     /// An entry larger than this is returned to the caller but not stored.
@@ -473,7 +473,7 @@ fn read<T: DeserializeOwned>(inner: &Inner, key: &Key, locked: bool) -> Result<L
     private::ensure_dir(&inner.root.join(ENTRIES))?;
     let path = entry_path(inner, key.digest());
     let Some(bytes) = private::read(&path)? else {
-        return Ok(Lookup::Miss);
+        return Ok(discard(&path, locked));
     };
     let Ok(header) = serde_json::from_slice::<Header>(&bytes) else {
         return Ok(discard(&path, locked));
@@ -588,10 +588,10 @@ fn prune(inner: &Inner, wait: Wait) -> Result<Prune, Error> {
         .fold(0_u64, |total, (_, _, size)| total.saturating_add(*size));
     if before.entries > inner.limits.hard_entries || before.bytes > inner.limits.hard_bytes {
         kept.sort();
+        let target_entries = inner.limits.target_entries.min(inner.limits.hard_entries);
+        let target_bytes = inner.limits.target_bytes.min(inner.limits.hard_bytes);
         for (_, path, size) in kept {
-            if entries_left <= inner.limits.target_entries
-                && bytes_left <= inner.limits.target_bytes
-            {
+            if entries_left <= target_entries && bytes_left <= target_bytes {
                 break;
             }
             private::remove(&path)?;

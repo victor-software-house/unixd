@@ -2,7 +2,7 @@
 //! symlink. Every function refuses what another user owns.
 
 use std::fs::{self, File, Metadata, Permissions};
-use std::io;
+use std::io::{self, Read as _};
 use std::os::unix::fs::{MetadataExt as _, PermissionsExt as _};
 use std::path::Path;
 
@@ -30,15 +30,17 @@ pub(crate) fn validate_root(root: &Path) -> Result<(), Error> {
     set_mode(root, 0o700)
 }
 
-/// Refuses a symlink or another user's directory.
+/// Refuses a symlink or another user's directory. When another caller creates
+/// the directory first, checks theirs.
 pub(crate) fn ensure_dir(path: &Path) -> Result<(), Error> {
     match fs::symlink_metadata(path) {
         Ok(metadata) if metadata.file_type().is_dir() && owned(&metadata) => set_mode(path, 0o700),
         Ok(_) => Err(Error::UnsafeRoot),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            fs::create_dir(path).map_err(|error| Error::io(&error))?;
-            set_mode(path, 0o700)
-        }
+        Err(error) if error.kind() == io::ErrorKind::NotFound => match fs::create_dir(path) {
+            Ok(()) => set_mode(path, 0o700),
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => ensure_dir(path),
+            Err(error) => Err(Error::io(&error)),
+        },
         Err(error) => Err(Error::io(&error)),
     }
 }
@@ -74,15 +76,23 @@ pub(crate) fn regular(path: &Path) -> Result<Option<Metadata>, Error> {
     }
 }
 
+/// Reads a regular file without following a symlink. Anything else reads as
+/// `None` and stays in place. `NONBLOCK` keeps a FIFO from blocking the open.
 pub(crate) fn read(path: &Path) -> Result<Option<Vec<u8>>, Error> {
-    if regular(path)?.is_none() {
+    let flags = OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOFOLLOW | OFlags::NONBLOCK;
+    let mut file = match rustix::fs::open(path, flags, Mode::empty()) {
+        Ok(fd) => File::from(fd),
+        Err(rustix::io::Errno::NOENT | rustix::io::Errno::LOOP) => return Ok(None),
+        Err(errno) => return Err(Error::io(&errno.into())),
+    };
+    let metadata = file.metadata().map_err(|error| Error::io(&error))?;
+    if !metadata.file_type().is_file() {
         return Ok(None);
     }
-    match fs::read(path) {
-        Ok(bytes) => Ok(Some(bytes)),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
-        Err(error) => Err(Error::io(&error)),
-    }
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes)
+        .map_err(|error| Error::io(&error))?;
+    Ok(Some(bytes))
 }
 
 /// Removes whatever is at `path` without following a symlink.

@@ -227,6 +227,47 @@ fn unlocked_lookup_keeps_and_locked_lookup_removes_invalid_entries() {
     store(&cache, &other, "other");
     fs::rename(cache.entry_path(&other), cache.entry_path(&key)).unwrap();
     assert_eq!(cache.lookup::<String>(&key).unwrap(), Lookup::Miss);
+
+    let path = cache.entry_path(&key);
+    fs::remove_file(&path).unwrap();
+    symlink(cache.entry_path(&other), &path).unwrap();
+    assert_eq!(cache.lookup::<String>(&key).unwrap(), Lookup::Miss);
+    assert!(fs::symlink_metadata(&path).is_ok());
+    assert_eq!(
+        cache.lock(&key).unwrap().lookup::<String>().unwrap(),
+        Lookup::Miss
+    );
+    assert!(fs::symlink_metadata(&path).is_err());
+}
+
+#[test]
+fn concurrent_opens_of_a_new_root_all_succeed() {
+    for _ in 0..50 {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("cache");
+        let opens: Vec<_> = (0..8)
+            .map(|_| {
+                let path = path.clone();
+                thread::spawn(move || Cache::open(&path, 1, Limits::default()).map(drop))
+            })
+            .collect();
+        for open in opens {
+            assert_eq!(open.join().unwrap(), Ok(()));
+        }
+    }
+}
+
+#[test]
+fn a_target_above_its_hard_cap_prunes_to_the_cap() {
+    let root = tempfile::tempdir().unwrap();
+    let limits = Limits {
+        hard_entries: 1,
+        ..Limits::default()
+    };
+    let (cache, _) = open(root.path(), 1, limits);
+    store(&cache, &key("first"), "one");
+    store(&cache, &key("second"), "two");
+    assert_eq!(cache.usage().unwrap().entries, 1);
 }
 
 #[test]
