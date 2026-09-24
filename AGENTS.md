@@ -21,8 +21,8 @@ docs/design/
 ## Rules
 
 1. **`unixd-cache` must never depend on an async runtime.** Its consumer's
-   direct path has no reactor. Coalescing is a trait the daemon layer
-   implements; the direct path binds a no-op.
+   direct path has no reactor. Only the daemon coalesces; the direct path
+   relies on the key lock.
 2. **`unsafe` is forbidden** at the workspace level, and every lint group is
    denied. Do not relax a lint to land a change.
 3. **The service manager owns the socket.** [launchd][launchd] on macOS and

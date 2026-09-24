@@ -240,8 +240,8 @@ names or values; what goes into a key is the caller's choice.
 
 ### Atomicity, locking, and single flight
 
-- validate on every read; a corrupt or schema-invalid entry is a miss and is
-  removed best-effort;
+- validate on every read; a corrupt or schema-invalid entry is a miss, removed
+  only under its key lock or by prune;
 - one file lock per key, [`std::fs::File::lock`][file-lock], held across direct and daemon
   processes alike;
 - one maintenance lock for prune and clear;
