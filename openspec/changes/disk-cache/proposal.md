@@ -16,8 +16,8 @@ locks, and size bounds together, so the cache stays hand-written.
 
 1. `unixd-cache` stores any serializable value under a caller-built key, with a
    caller policy, and no async runtime.
-2. Keys are built from named parts and hashed. A part named like a credential,
-   an output format, a destination path, or a request id is rejected.
+2. Keys are built from named parts, sorted, and hashed. What goes into a key
+   is the caller's choice.
 3. The stale-if-error decision is a table: timeout, network failure, 429, and
    5xx serve stale; 401, 403, 404, invalid JSON, and a schema mismatch do not.
 4. Locks use `std::fs::File::lock`; writes use [`tempfile`][tempfile] `persist`

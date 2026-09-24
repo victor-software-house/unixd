@@ -28,16 +28,6 @@ expected schema.
 - **WHEN** a caller holds a stale entry and the upstream answered HTTP 404
 - **THEN** `Failure::Status(404).serves_stale()` is false
 
-### Requirement: Keys never carry who asked or how it is shown
-
-The key builder SHALL reject a part whose name marks a credential, a
-credential hash, an output format, a destination path, or a request id.
-
-#### Scenario: Token part
-
-- **WHEN** a caller adds a part named `api_token`
-- **THEN** the builder returns `Error::ForbiddenKeyPart("api_token")` and the error text contains no part value
-
 ### Requirement: Writes are atomic
 
 A store SHALL leave either the previous entry or the new one readable, never a

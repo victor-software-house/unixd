@@ -4,7 +4,7 @@ Compile, format, lint, and test tasks run on the build host with `mise run verif
 
 ## 1. Crate
 
-- [ ] 1.1 Key builder, policy, failure table, and error type; proof: the stale matrix and forbidden-part tests pass
+- [ ] 1.1 Key builder, policy, failure table, and error type; proof: the stale matrix and key tests pass
 - [ ] 1.2 Store, lookup, locks, atomic write, prune, clear, and usage; proof: the atomicity, prune, schema-bump, and root-safety tests pass
 - [ ] 1.3 README and crate docs name the stale matrix and the key rule; proof: `mise run test:doc` passes
 

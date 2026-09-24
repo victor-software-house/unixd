@@ -235,10 +235,8 @@ Only successful normalized responses are cached. There is no negative caching.
 The caller supplies named key parts; the crate sorts them and hashes them
 with the crate's own entry format version. The caller's payload schema is
 stored in each entry, not hashed into the key, so a schema bump still finds
-the old entries and serves them as stale. The crate rejects a key input set at construction if it would embed a
-credential, a credential hash, an output format, a destination path, or a
-request id. Cache identity is about *what was fetched*, never *who asked* or
-*how it will be rendered*.
+the old entries and serves them as stale. The crate does not inspect part
+names or values; what goes into a key is the caller's choice.
 
 ### Atomicity, locking, and single flight
 

@@ -30,7 +30,7 @@ The design wins in every row. The consumer changes when it adopts the crates.
 | 2 | the spawned daemon inherits the client's working directory; cache roots from the environment stay relative | the serve entry changes to `/`; roots are made absolute once | [lifecycle][lifecycle], [disk cache][disk-cache] |
 | 3 | an oversize or malformed request gets an error reply, then the connection closes | the connection closes with no reply | [transport][transport] |
 | 4 | no per-connection read timeout, so a silent client holds a handler until drain | a per-connection read deadline | [transport][transport] |
-| 5 | keys are a closed enum of request kinds; nothing rejects a credential part | caller-built keys; credential, format, destination, and request-id parts are refused | [disk cache][disk-cache] |
+| 5 | keys are a closed enum of request kinds | caller-built keys from named parts | [disk cache][disk-cache] |
 | 6 | one lookup and one store method per request kind | one generic serializable value | [disk cache][disk-cache] |
 | 7 | locks through `fs2`; a hand-written temporary file and rename | `std::fs::File::lock` and `tempfile` | [disk cache][disk-cache] |
 | 8 | capacity eviction by file mtime; leftover temporary files are never removed | eviction by stored time; prune removes leftovers | [disk cache][disk-cache] |
