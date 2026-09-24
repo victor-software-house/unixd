@@ -4,12 +4,10 @@ version = "0.0.0"
 description = "Bounded on-disk response cache: freshness horizons, stale-if-error, cross-process locks, atomic writes"
 keywords = ["cache", "disk-cache", "stale-if-error", "file-lock"]
 categories = ["caching", "filesystem"]
-readme = "README.md"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-homepage.workspace = true
 authors.workspace = true
 
 [lints]

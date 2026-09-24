@@ -7,7 +7,6 @@ edition = "2024"
 rust-version = "1.97.1"
 license = "MIT"
 repository = "https://github.com/victor-software-house/unixd"
-homepage = "https://github.com/victor-software-house/unixd"
 authors = ["Victor Araújo <victor@victor-software-house.com>"]
 
 [workspace.lints.rust]
