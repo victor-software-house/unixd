@@ -270,6 +270,10 @@ impl Cache {
     /// Hold it across "look up, fetch upstream, store" so concurrent callers
     /// for the same key fetch once.
     ///
+    /// When an earlier prune was skipped, this first retries it without
+    /// waiting for locks. If that prune runs, it reads every entry before this
+    /// call returns.
+    ///
     /// # Errors
     ///
     /// [`Error::Lock`] when a lock cannot be taken, and [`Error::UnsafeRoot`]
@@ -394,7 +398,8 @@ impl KeyLock {
     /// file. When the write takes the cache over a hard cap, the cache is
     /// pruned after the lock is released. That prune does not wait: while any
     /// key lock is held, in this process or another, it reports
-    /// [`Maintenance::Deferred`] and the next write over the cap tries again.
+    /// [`Maintenance::Deferred`], and the next [`Cache::lock`] or write over
+    /// the cap tries again.
     /// When the prune does run, this call returns only after it finishes.
     ///
     /// # Errors
