@@ -2,7 +2,7 @@
 //! symlink. Every function refuses what another user owns.
 
 use std::fs::{self, File, Metadata, Permissions, TryLockError};
-use std::io::{self, Read as _};
+use std::io::{self, Read as _, Write as _};
 use std::os::unix::fs::{MetadataExt as _, PermissionsExt as _};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
@@ -158,6 +158,18 @@ pub(crate) fn read(path: &Path) -> Result<Option<(Vec<u8>, Metadata)>, Error> {
     file.read_to_end(&mut bytes)
         .map_err(|error| Error::io(&error))?;
     Ok(Some((bytes, metadata)))
+}
+
+/// Writes `bytes` to a new `0600` file at `path`, leaving an existing one as
+/// it is.
+pub(crate) fn create_private(path: &Path, bytes: &[u8]) -> Result<(), Error> {
+    let flags = OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::CLOEXEC | OFlags::NOFOLLOW;
+    let mut file = match rustix::fs::open(path, flags, Mode::RUSR | Mode::WUSR) {
+        Ok(fd) => File::from(fd),
+        Err(rustix::io::Errno::EXIST) => return Ok(()),
+        Err(errno) => return Err(Error::io(&errno.into())),
+    };
+    file.write_all(bytes).map_err(|error| Error::io(&error))
 }
 
 /// Sets the modification time of the regular file at `path`, without

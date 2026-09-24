@@ -3,7 +3,7 @@ use std::io::{BufRead as _, BufReader, ErrorKind, Write as _};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use std::{fmt, path};
+use std::{env, fmt, path};
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -16,6 +16,28 @@ const LOCKS: &str = "locks";
 const MAINTENANCE: &str = "maintenance.lock";
 const PRUNE_LOCK: &str = "prune.lock";
 const TEMPORARY_SUFFIX: &str = ".tmp";
+const CACHEDIR_TAG: &str = "CACHEDIR.TAG";
+const CACHEDIR_TAG_TEXT: &str = "Signature: 8a477f597d28d172789f06886806bc55
+# This file is a cache directory tag created by unixd-cache.
+# For information about cache directory tags, see https://bford.info/cachedir/
+";
+
+/// The per-user cache directory for `name`: `~/Library/Caches/<name>` on
+/// macOS, and `$XDG_CACHE_HOME/<name>` or `~/.cache/<name>` elsewhere. `None`
+/// when `HOME` is unset. The OS cleans neither, so [`Limits`] bounds the cache.
+#[must_use]
+pub fn default_root(name: &str) -> Option<PathBuf> {
+    let home = env::var_os("HOME").map(PathBuf::from);
+    let base = if cfg!(target_os = "macos") {
+        home?.join("Library").join("Caches")
+    } else {
+        env::var_os("XDG_CACHE_HOME")
+            .map(PathBuf::from)
+            .filter(|path| path.is_absolute())
+            .or_else(|| home.map(|home| home.join(".cache")))?
+    };
+    Some(base.join(name))
+}
 
 /// The current time in milliseconds since the Unix epoch.
 ///
@@ -41,7 +63,12 @@ impl Clock for SystemClock {
 /// Size and age bounds. A write that takes the cache over a hard cap prunes
 /// it down to the targets, least recently used first. A target above its hard
 /// cap acts as the hard cap.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+///
+/// It deserializes from a consumer's config: every field is optional and
+/// defaults as below, durations read like `30d` or `1h`, and an unknown field
+/// is an error.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct Limits {
     /// An entry larger than this is returned to the caller but not stored.
     pub max_entry_bytes: u64,
@@ -55,11 +82,14 @@ pub struct Limits {
     pub target_bytes: u64,
     /// A prune removes an entry not read or written for this long, even
     /// unexpired.
+    #[serde(deserialize_with = "humantime_serde::deserialize")]
     pub unused_after: Duration,
     /// A write prunes when the last prune is older than this, even under the
     /// caps.
+    #[serde(deserialize_with = "humantime_serde::deserialize")]
     pub sweep_every: Duration,
     /// A hit records its use at most this often, so most reads write nothing.
+    #[serde(deserialize_with = "humantime_serde::deserialize")]
     pub touch_after: Duration,
 }
 
@@ -210,7 +240,8 @@ impl Cache {
     /// only as [`Lookup::Stale`], and entries from a higher one are ignored.
     ///
     /// `root` is made absolute once, here, so a later change of working
-    /// directory cannot move the cache.
+    /// directory cannot move the cache. A `CACHEDIR.TAG` there tells backup
+    /// tools to skip it. [`default_root`] gives the usual place.
     ///
     /// # Errors
     ///
@@ -237,6 +268,7 @@ impl Cache {
         private::ensure_dir(&root.join(ENTRIES))?;
         private::ensure_dir(&root.join(LOCKS))?;
         drop(private::open_lock(&root.join(MAINTENANCE))?);
+        private::create_private(&root.join(CACHEDIR_TAG), CACHEDIR_TAG_TEXT.as_bytes())?;
         let pruning = root.join(PRUNE_LOCK);
         if fs::symlink_metadata(&pruning).is_err() {
             drop(private::open_lock(&pruning)?);

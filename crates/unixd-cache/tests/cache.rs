@@ -406,6 +406,12 @@ fn files_and_directories_are_private() {
     assert_eq!(mode(&cache_root.join("locks")), 0o700);
     assert_eq!(mode(&cache.entry_path(&key)), 0o600);
     assert_eq!(mode(&cache_root.join("maintenance.lock")), 0o600);
+    assert_eq!(mode(&cache_root.join("CACHEDIR.TAG")), 0o600);
+    assert!(
+        fs::read_to_string(cache_root.join("CACHEDIR.TAG"))
+            .unwrap()
+            .starts_with("Signature: 8a477f597d28d172789f06886806bc55")
+    );
 }
 
 #[test]
@@ -708,4 +714,26 @@ fn prune_reads_only_the_header() {
         Lookup::Miss
     );
     assert!(!path.exists());
+}
+
+#[test]
+fn limits_read_from_a_config_with_defaults_for_the_rest() {
+    let limits: Limits =
+        serde_json::from_str(r#"{"hard_entries": 50, "unused_after": "7d", "touch_after": "10m"}"#)
+            .unwrap();
+    assert_eq!(limits.hard_entries, 50);
+    assert_eq!(limits.unused_after, Duration::from_hours(7 * 24));
+    assert_eq!(limits.touch_after, Duration::from_mins(10));
+    assert_eq!(limits.hard_bytes, Limits::default().hard_bytes);
+    assert!(serde_json::from_str::<Limits>(r#"{"hard_entires": 50}"#).is_err());
+}
+
+#[test]
+fn default_root_is_a_per_user_cache_directory() {
+    let root = unixd_cache::default_root("unixd-test").unwrap();
+    assert!(root.is_absolute());
+    assert!(root.ends_with("unixd-test"));
+    if cfg!(target_os = "macos") {
+        assert!(root.ends_with("Library/Caches/unixd-test"));
+    }
 }

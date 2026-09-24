@@ -42,6 +42,7 @@ mod private;
 
 pub use cache::{
     Cache, Cached, Clock, KeyLock, Limits, Lookup, Maintenance, Prune, Stored, SystemClock, Usage,
+    default_root,
 };
 pub use error::Error;
 pub use key::{Key, KeyBuilder};
