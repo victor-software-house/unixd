@@ -682,3 +682,30 @@ fn a_daily_sweep_removes_unused_entries() {
         }
     );
 }
+
+#[test]
+fn prune_reads_only_the_header() {
+    let root = tempfile::tempdir().unwrap();
+    let (cache, _) = open(root.path(), 1, Limits::default());
+    let tricky = Key::builder(r#"a,"value":b"#)
+        .part("query", "q")
+        .unwrap()
+        .build();
+    store(&cache, &tricky, "kept");
+    let corrupt = key("corrupt");
+    store(&cache, &corrupt, "value");
+    let path = cache.entry_path(&corrupt);
+    let bytes = fs::read(&path).unwrap();
+    fs::write(&path, &bytes[..bytes.len() - 3]).unwrap();
+
+    assert_eq!(cache.prune().unwrap().expired_removed, 0);
+    assert!(matches!(
+        cache.lookup::<String>(&tricky).unwrap(),
+        Lookup::Fresh(_)
+    ));
+    assert_eq!(
+        cache.lock(&corrupt).unwrap().lookup::<String>().unwrap(),
+        Lookup::Miss
+    );
+    assert!(!path.exists());
+}

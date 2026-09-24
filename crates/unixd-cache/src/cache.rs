@@ -1,5 +1,5 @@
 use std::fs::{self, File, Metadata, TryLockError};
-use std::io::{BufReader, ErrorKind, Write as _};
+use std::io::{BufRead as _, BufReader, ErrorKind, Write as _};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -676,17 +676,38 @@ fn remove_unheld_locks(inner: &Inner) -> Result<u64, Error> {
     Ok(removed)
 }
 
-/// Streams the header and discards the value, so memory stays small; the
-/// whole file is still read.
 fn live(path: &Path, now: u64) -> bool {
-    File::open(path)
-        .ok()
-        .and_then(|file| serde_json::from_reader::<_, Header>(BufReader::new(file)).ok())
-        .is_some_and(|header| {
-            header.consistent()
-                && entry_digest(path) == Some(header.digest.as_str())
-                && now <= header.stale_until_ms
-        })
+    read_header(path).is_some_and(|header| {
+        header.consistent()
+            && entry_digest(path) == Some(header.digest.as_str())
+            && now <= header.stale_until_ms
+    })
+}
+
+/// Reads up to the `value` key and no further. `Written` serializes `value`
+/// last, and a quote inside a string is escaped, so the first `,"value":` is
+/// the key. A corrupt value is left for [`KeyLock::lookup`] to find.
+fn read_header(path: &Path) -> Option<Header> {
+    const VALUE_KEY: &[u8] = b",\"value\":";
+    let mut reader = BufReader::new(File::open(path).ok()?);
+    let mut prefix = Vec::new();
+    loop {
+        let chunk = reader.fill_buf().ok()?;
+        if chunk.is_empty() {
+            return None;
+        }
+        let read = chunk.len();
+        prefix.extend_from_slice(chunk);
+        reader.consume(read);
+        if let Some(end) = prefix
+            .windows(VALUE_KEY.len())
+            .position(|window| window == VALUE_KEY)
+        {
+            prefix.truncate(end);
+            prefix.push(b'}');
+            return serde_json::from_slice(&prefix).ok();
+        }
+    }
 }
 
 /// `prune.lock`'s modification time records the last prune, on the cache's
