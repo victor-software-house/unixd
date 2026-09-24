@@ -37,9 +37,9 @@ queue:
       - https://github.com/victor-software-house/unixd/blob/main/docs/design/daemon-and-cache.md
 
   - id: UXD-005
-    title: Add the coalescing seam and the cross-mode equivalence test
+    title: Add daemon coalescing and the cross-mode equivalence test
     scope: unixd
-    outcome: The daemon coalesces concurrent identical requests in process, the direct path binds a no-op, and both paths give the same output and cache state.
+    outcome: The daemon coalesces concurrent identical requests in process, the direct path relies on the key lock, and both paths give the same output and cache state.
     blocked_by:
       - UXD-002
       - UXD-004
@@ -58,6 +58,18 @@ queue:
       - The consumer's own suite passes on the published crates, and it contains no start lock or self-spawn code.
     links:
       - https://github.com/victor-software-house/unixd/blob/main/docs/design/daemon-and-cache.md
+
+  - id: UXD-007
+    title: Add an in-memory secret store to the daemon
+    scope: unixd
+    outcome: A daemon can hold secrets in memory with idle and maximum TTLs, zeroed on drop, never written to disk, and gone when it exits.
+    blocked_by:
+      - UXD-004
+    acceptance:
+      - The secret-store OpenSpec change tasks pass under mise run verify on macOS and Linux.
+      - A process running as another user cannot read a stored secret, and the daemon writes no core dump.
+    links:
+      - https://github.com/victor-software-house/unixd/blob/main/openspec/changes/secret-store/proposal.md
 archive:
   - id: UXD-001
     title: Prove native socket activation on macOS and Linux

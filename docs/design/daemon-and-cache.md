@@ -243,8 +243,12 @@ names or values; what goes into a key is the caller's choice.
 - validate on every read; a corrupt or schema-invalid entry is a miss, removed
   only under its key lock or by prune;
 - one file lock per key, [`std::fs::File::lock`][file-lock], held across direct and daemon
-  processes alike;
-- one maintenance lock for prune and clear;
+  processes alike; the holder deletes the lock file before unlocking, so lock
+  files exist only while held;
+- a maintenance lock that key holders and prune take shared and only `clear`
+  takes exclusively, plus `prune.lock` so one prune runs at a time; prune
+  removes each file under its key's lock taken without waiting, and skips a
+  held key;
 - write to a temporary file in the same directory with [`tempfile`][tempfile], `fsync` it,
   rename atomically with `persist`, then `fsync` the parent directory;
 - the daemon coalesces concurrent identical requests in process; the direct
@@ -256,11 +260,28 @@ from it.
 
 ### Bounds
 
-- an entry above the per-entry ceiling is returned to the caller but not stored;
-- hard caps on both entry count and total bytes;
-- prune removes expired entries first, then the oldest, down to a low-water
-  target below the cap;
-- prune runs at service startup and after a write crosses a hard cap.
+Neither macOS nor Linux cleans a plain program's cache directory, so the
+cache bounds itself. Every limit is a `Limits` field with a default; the
+[maintenance research][maintenance] compares them with other tools.
+
+- an entry above the per-entry ceiling (8 MiB) is returned to the caller but
+  not stored;
+- hard caps on both entry count and total bytes (10,000 and 256 MiB);
+- prune removes expired entries, then entries unused for 30 days, then the
+  least recently used, down to a low-water target (8,000 and 200 MiB);
+- a hit records its use at most hourly;
+- prune runs after a write crosses a hard cap, and at most daily after any
+  write; a consumer's daemon may also call it at startup;
+- the root defaults to the per-user cache directory, tagged with
+  `CACHEDIR.TAG` so backup tools skip it.
+
+`Limits` deserializes from the consumer's own config; the crates read no
+config file.
+
+### Secrets
+
+Secrets never go into the disk cache, encrypted or not. A daemon that needs
+to hold one keeps it in memory, in the [secret store][secret-store].
 
 ## Non-goals
 
@@ -286,6 +307,8 @@ Each slice is one pull request that leaves the repository releasable.
    equivalence test.
 6. **First consumer adopts.** The consumer replaces its own daemon, transport,
    and cache with these crates, and deletes its self-spawn code.
+7. **Secret store.** An in-memory store in the daemon with idle and maximum
+   TTLs, zeroed on drop, and no core dumps. Nothing earlier depends on it.
 
 ## Verification
 
@@ -318,8 +341,10 @@ crate is published.
 [http-cache-semantics]: https://crates.io/crates/http-cache-semantics
 [launchd-plist]: https://keith.github.io/xcode-man-pages/launchd.plist.5.html
 [listenfd]: https://crates.io/crates/listenfd
+[maintenance]: ../research/cache-maintenance.md
 [measurements]: ../research/activation-and-cache.md#4-live-activation-measurements
 [research]: ../research/
+[secret-store]: ../../openspec/changes/secret-store/proposal.md
 [service-manager]: https://crates.io/crates/service-manager
 [systemd-exec]: https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html
 [systemd-socket]: https://www.freedesktop.org/software/systemd/man/latest/systemd.socket.html
