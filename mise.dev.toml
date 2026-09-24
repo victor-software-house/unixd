@@ -4,7 +4,8 @@
 [tools]
 committed = "1.1.11"
 lefthook = "2.1.10"
-rust = { version = "nightly", components = "rustfmt,clippy" }
+rust = { version = "nightly", components = "rustfmt,clippy", mr_boxington = true }
+mr-boxington = "1.16.0"
 "github:nextest-rs/nextest" = "cargo-nextest-0.9.143"
 "github:EmbarkStudios/cargo-deny" = "0.20.2"
 "github:bnjbvr/cargo-machete" = "0.9.2"
