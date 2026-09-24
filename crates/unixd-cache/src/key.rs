@@ -24,9 +24,9 @@ const FORBIDDEN_WORDS: &[&str] = &[
     "apikey",
 ];
 
-/// Prefixes that mark a credential. Each is matched at the start of every
-/// word of the split name, with the separators after that point removed, so
-/// `access_key`, `accessKey`, `x-api-key`, and `ACCESSKEY` match while
+/// Compounds that mark a credential. Each is matched at the start or the end
+/// of any run of adjacent words with the separators removed, so `access_key`,
+/// `x-api-key`, `ACCESSKEY`, and `oauthaccesstoken` match while
 /// `profession_id` does not match `sessionid`.
 const FORBIDDEN_SUBSTRINGS: &[&str] = &[
     "apikey",
@@ -46,6 +46,11 @@ const FORBIDDEN_SUBSTRINGS: &[&str] = &[
     "clientsecret",
     "passphrase",
 ];
+
+/// Word endings that mark a credential run together with a qualifier, such
+/// as `jwttoken` or `githubsecret`. A word that only starts with one, such
+/// as `tokenizer` or `secretary`, passes.
+const FORBIDDEN_ENDINGS: &[&str] = &["token", "tokens", "secret", "password", "passwd"];
 
 /// Whole names that describe how or where a result is shown, or which request
 /// asked for it, never what was fetched.
@@ -116,9 +121,9 @@ impl KeyBuilder {
     /// Cache identity is what was fetched, never who asked or how the result
     /// will be shown. A name that marks a credential (`token`, `secret`,
     /// `api_key`, `authorization`, …), an output format, a destination path, or
-    /// a request id is refused. Words are matched whole, so `tokenizer` and
-    /// `secretary` pass, and so does a run-together name such as `jwttoken`
-    /// that no listed prefix covers. Only the name is
+    /// a request id is refused. Credential words match whole or at the end of
+    /// a word, so `jwttoken` is refused while `tokenizer` and `secretary`
+    /// pass. Only the name is
     /// checked: a credential under an innocent name is the caller's bug.
     ///
     /// # Errors
@@ -205,11 +210,18 @@ fn forbidden(name: &str) -> bool {
         .collect();
     let words: Vec<&str> = name.split('_').filter(|word| !word.is_empty()).collect();
     FORBIDDEN_NAMES.contains(&name.as_str())
-        || words.iter().any(|word| FORBIDDEN_WORDS.contains(word))
+        || words.iter().any(|word| {
+            FORBIDDEN_WORDS.contains(word)
+                || FORBIDDEN_ENDINGS
+                    .iter()
+                    .any(|ending| word.ends_with(ending))
+        })
         || (0..words.len()).any(|start| {
-            let tail = words[start..].concat();
-            FORBIDDEN_SUBSTRINGS
-                .iter()
-                .any(|prefix| tail.starts_with(prefix))
+            (start..words.len()).any(|end| {
+                let span = words[start..=end].concat();
+                FORBIDDEN_SUBSTRINGS
+                    .iter()
+                    .any(|compound| span.starts_with(compound) || span.ends_with(compound))
+            })
         })
 }

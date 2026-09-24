@@ -121,6 +121,8 @@ pub enum Maintenance {
     /// [`Error::Lock`] means a key lock was held, so the prune was skipped
     /// rather than waited for. A marker file records the skipped prune, and
     /// every later [`Cache::lock`] tries it again before taking its own locks.
+    /// Any other error means the prune started and failed; it is retried by
+    /// the next write over a hard cap or a scheduled [`Cache::prune`].
     /// While key locks overlap without a gap, the cache can pass its hard
     /// caps; a service that expects that load should call [`Cache::prune`]
     /// on a schedule from a thread that holds no key lock.
@@ -392,6 +394,7 @@ impl KeyLock {
     /// pruned after the lock is released. That prune does not wait: while any
     /// key lock is held, in this process or another, it reports
     /// [`Maintenance::Deferred`] and the next write over the cap tries again.
+    /// When the prune does run, this call returns only after it finishes.
     ///
     /// # Errors
     ///
@@ -427,7 +430,9 @@ impl KeyLock {
                 match prune(&inner, Wait::Skip) {
                     Ok(prune) => Maintenance::Pruned(prune),
                     Err(error) => {
-                        let _ = private::open_lock(&inner.root.join(PRUNE_PENDING));
+                        if error == Error::Lock {
+                            let _ = private::open_lock(&inner.root.join(PRUNE_PENDING));
+                        }
                         Maintenance::Deferred(error)
                     }
                 }
