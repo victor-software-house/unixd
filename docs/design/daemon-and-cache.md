@@ -294,5 +294,9 @@ crate is published.
    client, proven by shared golden fixtures, or generated from one source. Start
    with fixtures; revisit only when drift is measured rather than predicted.
 2. Whether a relaunch after an idle exit keeps the waiting connection on
-   launchd with `inetdCompatibility`. Apple documents it for on-demand jobs in
-   general, not for this key. Slice 1 answers it.
+   Linux. On macOS it does: measured on 2026-09-24 with the throwaway
+   `examples/activation.rs` under launchd, `inetdCompatibility` `Wait = true`,
+   and a 5 s idle timeout. The first connection started the daemon in 490 ms;
+   a connection right after the idle exit got a new process in 17 ms with no
+   refusal; the socket file survived every exit; `runs = 3`, last exit code 0.
+   The 10 s `ThrottleInterval` did not delay these socket-triggered relaunches.
