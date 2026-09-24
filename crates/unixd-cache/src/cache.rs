@@ -271,7 +271,7 @@ impl Cache {
         private::ensure_dir(&root.join(ENTRIES))?;
         private::ensure_dir(&root.join(LOCKS))?;
         drop(private::open_lock(&root.join(MAINTENANCE))?);
-        private::create_private(&root.join(CACHEDIR_TAG), CACHEDIR_TAG_TEXT.as_bytes())?;
+        private::create_private(&root, CACHEDIR_TAG, CACHEDIR_TAG_TEXT.as_bytes())?;
         let pruning = root.join(PRUNE_LOCK);
         if fs::symlink_metadata(&pruning).is_err() {
             drop(private::open_lock(&pruning)?);

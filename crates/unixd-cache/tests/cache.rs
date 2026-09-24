@@ -8,10 +8,11 @@
 use std::os::unix::fs::{PermissionsExt as _, symlink};
 use std::os::unix::net::UnixListener;
 use std::path::Path;
+use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, mpsc};
 use std::time::Duration;
-use std::{fs, thread};
+use std::{env, fs, thread};
 
 use unixd_cache::{
     Cache, Clock, Error, Failure, Key, Limits, Lookup, Maintenance, Policy, Source, Stored,
@@ -735,5 +736,28 @@ fn default_root_is_a_per_user_cache_directory() {
     assert!(root.ends_with("unixd-test"));
     if cfg!(target_os = "macos") {
         assert!(root.ends_with("Library/Caches/unixd-test"));
+    }
+}
+
+/// Runs itself in a child process with `HOME` changed, since a test may not
+/// set the environment of its own process.
+#[test]
+fn default_root_refuses_an_empty_or_relative_home() {
+    const NAME: &str = "default_root_refuses_an_empty_or_relative_home";
+    if env::var_os("UNIXD_CACHE_CHILD").is_some() {
+        assert_eq!(unixd_cache::default_root("unixd-test"), None);
+        return;
+    }
+    for home in ["", "relative/home"] {
+        let output = Command::new(env::current_exe().unwrap())
+            .args(["--exact", NAME])
+            .env("UNIXD_CACHE_CHILD", "1")
+            .env("HOME", home)
+            .env_remove("XDG_CACHE_HOME")
+            .output()
+            .unwrap();
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(output.status.success(), "HOME={home:?}: {stdout}");
+        assert!(stdout.contains("1 passed"), "HOME={home:?}: {stdout}");
     }
 }

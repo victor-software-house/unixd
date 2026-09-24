@@ -160,19 +160,19 @@ pub(crate) fn read(path: &Path) -> Result<Option<(Vec<u8>, Metadata)>, Error> {
     Ok(Some((bytes, metadata)))
 }
 
-/// Writes `bytes` to a new `0600` file at `path`, leaving an existing one as
-/// it is. A failed write removes the file, so the next call writes it again.
-pub(crate) fn create_private(path: &Path, bytes: &[u8]) -> Result<(), Error> {
-    let flags = OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::CLOEXEC | OFlags::NOFOLLOW;
-    let mut file = match rustix::fs::open(path, flags, Mode::RUSR | Mode::WUSR) {
-        Ok(fd) => File::from(fd),
-        Err(rustix::io::Errno::EXIST) => return Ok(()),
-        Err(errno) => return Err(Error::io(&errno.into())),
-    };
-    file.write_all(bytes).map_err(|error| {
-        let _ = fs::remove_file(path);
-        Error::io(&error)
-    })
+/// Writes `bytes` to a new `0600` file `name` in `dir`, leaving an existing
+/// one as it is. The file appears whole or not at all: it is written to a
+/// temporary file and linked into place without replacing anything.
+pub(crate) fn create_private(dir: &Path, name: &str, bytes: &[u8]) -> Result<(), Error> {
+    let mut file = tempfile::Builder::new()
+        .tempfile_in(dir)
+        .map_err(|error| Error::io(&error))?;
+    file.write_all(bytes).map_err(|error| Error::io(&error))?;
+    match file.persist_noclobber(dir.join(name)) {
+        Ok(_) => Ok(()),
+        Err(error) if error.error.kind() == io::ErrorKind::AlreadyExists => Ok(()),
+        Err(error) => Err(Error::io(&error.error)),
+    }
 }
 
 /// Sets the modification time of the regular file at `path`, without
