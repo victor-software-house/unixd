@@ -74,7 +74,8 @@ impl Clock for SystemClock {
 #[serde(default, deny_unknown_fields)]
 pub struct Limits {
     /// An entry larger than this is returned to the caller but not stored.
-    /// After a lower value, prune removes larger entries as expired.
+    /// After a lower value, a larger entry reads as a miss, and prune removes
+    /// it as expired.
     pub max_entry_bytes: u64,
     /// Entry count that triggers a prune.
     pub hard_entries: u64,
@@ -519,7 +520,7 @@ struct Value<T> {
 fn read<T: DeserializeOwned>(inner: &Inner, key: &Key, locked: bool) -> Result<Lookup<T>, Error> {
     private::ensure_dir(&inner.root.join(ENTRIES))?;
     let path = entry_path(inner, key.digest());
-    let Some((bytes, metadata)) = private::read(&path)? else {
+    let Some((bytes, metadata)) = private::read(&path, inner.limits.max_entry_bytes)? else {
         return Ok(discard(&path, locked));
     };
     let Ok(header) = serde_json::from_slice::<Header>(&bytes) else {

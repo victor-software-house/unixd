@@ -136,8 +136,9 @@ pub(crate) fn regular(path: &Path) -> Result<Option<Metadata>, Error> {
 /// Reads a regular file without following a symlink. Anything else reads as
 /// `None` and stays in place. `NONBLOCK` keeps a FIFO from blocking the open.
 /// Opening a symlink or a socket fails with an errno that varies by platform,
-/// so a failed open checks the file type before reporting an error.
-pub(crate) fn read(path: &Path) -> Result<Option<(Vec<u8>, Metadata)>, Error> {
+/// so a failed open checks the file type before reporting an error. A file
+/// longer than `limit` reads as `None` without its contents being read.
+pub(crate) fn read(path: &Path, limit: u64) -> Result<Option<(Vec<u8>, Metadata)>, Error> {
     let flags = OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOFOLLOW | OFlags::NONBLOCK;
     let mut file = match rustix::fs::open(path, flags, Mode::empty()) {
         Ok(fd) => File::from(fd),
@@ -151,7 +152,7 @@ pub(crate) fn read(path: &Path) -> Result<Option<(Vec<u8>, Metadata)>, Error> {
         }
     };
     let metadata = file.metadata().map_err(|error| Error::io(&error))?;
-    if !metadata.file_type().is_file() {
+    if !metadata.file_type().is_file() || metadata.len() > limit {
         return Ok(None);
     }
     let mut bytes = Vec::new();

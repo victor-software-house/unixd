@@ -753,6 +753,7 @@ fn default_root_ignores_an_empty_or_relative_base() {
     let mut cases = vec![("", None, ""), ("relative/home", None, "")];
     if !cfg!(target_os = "macos") {
         cases.push(("relative/home", Some("/xdg"), "/xdg/unixd-test"));
+        cases.push(("/home/u", Some("relative/xdg"), "/home/u/.cache/unixd-test"));
     }
     for (home, xdg, expect) in cases {
         let mut child = Command::new(env::current_exe().unwrap());
@@ -783,5 +784,6 @@ fn prune_removes_entries_over_a_lowered_size_ceiling() {
         ..Limits::default()
     };
     let (cache, _) = open(root.path(), 1, limits);
+    assert_eq!(cache.lookup::<String>(&key("large")).unwrap(), Lookup::Miss);
     assert_eq!(cache.prune().unwrap().expired_removed, 1);
 }
