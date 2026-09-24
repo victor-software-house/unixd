@@ -23,9 +23,9 @@ const CACHEDIR_TAG_TEXT: &str = "Signature: 8a477f597d28d172789f06886806bc55
 ";
 
 /// The per-user cache directory for `name`: `~/Library/Caches/<name>` on
-/// macOS, and `$XDG_CACHE_HOME/<name>` or `~/.cache/<name>` elsewhere. `None`
-/// when `HOME` is unset or relative. The OS cleans neither, so [`Limits`]
-/// bounds the cache.
+/// macOS, and `$XDG_CACHE_HOME/<name>` or `~/.cache/<name>` elsewhere. An unset
+/// or relative variable is ignored, and `None` means no absolute base was
+/// found. The OS cleans neither, so [`Limits`] bounds the cache.
 #[must_use]
 pub fn default_root(name: &str) -> Option<PathBuf> {
     let home = env::var_os("HOME")
@@ -74,6 +74,7 @@ impl Clock for SystemClock {
 #[serde(default, deny_unknown_fields)]
 pub struct Limits {
     /// An entry larger than this is returned to the caller but not stored.
+    /// After a lower value, prune removes larger entries as expired.
     pub max_entry_bytes: u64,
     /// Entry count that triggers a prune.
     pub hard_entries: u64,

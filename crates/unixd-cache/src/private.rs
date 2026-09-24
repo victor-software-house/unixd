@@ -162,7 +162,9 @@ pub(crate) fn read(path: &Path) -> Result<Option<(Vec<u8>, Metadata)>, Error> {
 
 /// Writes `bytes` to a new `0600` file `name` in `dir`, leaving an existing
 /// one as it is. The file appears whole or not at all: it is written to a
-/// temporary file and linked into place without replacing anything.
+/// temporary file in `dir` and linked into place without replacing anything.
+/// A crash before the link leaves that temporary file behind; the tag is
+/// written once per cache, so the case is left alone.
 pub(crate) fn create_private(dir: &Path, name: &str, bytes: &[u8]) -> Result<(), Error> {
     let mut file = tempfile::Builder::new()
         .tempfile_in(dir)
