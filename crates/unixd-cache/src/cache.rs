@@ -326,9 +326,9 @@ impl Cache {
         prune(&self.inner, Wait::Block)
     }
 
-    /// Removes every entry and lock file. It waits for every holder of a key
-    /// lock to finish, so a thread that holds a [`KeyLock`] must drop it
-    /// before calling this.
+    /// Removes every entry, lock file, and pending-prune marker. It waits for
+    /// every holder of a key lock to finish, so a thread that holds a
+    /// [`KeyLock`] must drop it before calling this.
     ///
     /// # Errors
     ///
@@ -349,7 +349,8 @@ impl Cache {
         for item in fs::read_dir(&locks).map_err(|error| Error::io(&error))? {
             private::remove(&item.map_err(|error| Error::io(&error))?.path())?;
         }
-        private::sync_dir(&locks)
+        private::sync_dir(&locks)?;
+        private::remove(&self.inner.root.join(PRUNE_PENDING))
     }
 }
 

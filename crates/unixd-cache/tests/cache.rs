@@ -123,6 +123,10 @@ fn credential_and_presentation_parts_are_refused() {
         "userapikey",
         "githubtoken",
         "jwttoken",
+        "awssecretkey",
+        "refreshtokens",
+        "github_accesstoken",
+        "myPassword",
         "X-Api-Key",
         "secret",
         "Authorization",
@@ -548,8 +552,10 @@ fn prune_and_clear_remove_lock_files() {
     assert_eq!(cache.prune().unwrap().locks_removed, 2);
     assert_eq!(fs::read_dir(&locks).unwrap().count(), 1);
 
+    fs::write(root.path().join("prune.pending"), b"").unwrap();
     cache.clear().unwrap();
     assert_eq!(fs::read_dir(&locks).unwrap().count(), 0);
+    assert!(!root.path().join("prune.pending").exists());
 }
 
 #[test]
