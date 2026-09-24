@@ -1,25 +1,14 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/victor-software-house/qctl/main/schema/tasks.schema.json
 schema_version: 4
 prefix: UXD
-active: UXD-001
+active: UXD-002
 queue:
-  - id: UXD-001
-    title: Prove native socket activation on macOS and Linux
-    scope: activation
-    outcome: A daemon receives its socket on stdin from launchd and from systemd --user, exits idle, and is relaunched by the next connection, before any crate code depends on that path.
-    blocked_by: []
-    acceptance:
-      - The three scenarios in openspec/changes/native-socket-activation/specs/activation hold on macOS and on Linux.
-      - The design doc records the result and answers its open question 2.
-    links:
-      - https://github.com/victor-software-house/unixd/blob/main/docs/design/daemon-and-cache.md
-
   - id: UXD-002
     title: Extract the consumer cache into unixd-cache
     scope: unixd-cache
     outcome: unixd-cache stores any serializable value under caller-built keys with fresh and stale horizons, per-key locks, atomic writes, and bounded prune, with no async runtime.
     blocked_by:
-      - UXD-001
+      []
     acceptance:
       - Verification steps 2, 5, 6, and 8 in the design doc pass.
     links:
@@ -30,7 +19,7 @@ queue:
     scope: unixd
     outcome: unixd carries versioned newline-delimited JSON frames with a size cap over a handler trait, and closes a connection from another user before reading.
     blocked_by:
-      - UXD-001
+      []
     acceptance:
       - Verification steps 3 and 4 in the design doc pass.
     links:
@@ -69,5 +58,15 @@ queue:
       - The consumer's own suite passes on the published crates, and it contains no start lock or self-spawn code.
     links:
       - https://github.com/victor-software-house/unixd/blob/main/docs/design/daemon-and-cache.md
-archive: []
+archive:
+  - id: UXD-001
+    title: Prove native socket activation on macOS and Linux
+    scope: activation
+    outcome: A daemon receives its socket on stdin from launchd and from systemd --user, exits idle, and is relaunched by the next connection, before any crate code depends on that path.
+    links:
+      - https://github.com/victor-software-house/unixd/blob/main/docs/design/daemon-and-cache.md
+    completed: 2026-09-24T09:09:18
+    evidence:
+      - 'https://github.com/victor-software-house/unixd/pull/2: launchd and systemd --user proofs recorded in docs/design/daemon-and-cache.md, Measured activation'
+    disposition: completed
 horizon: []
