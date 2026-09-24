@@ -11,5 +11,5 @@ Compile, format, lint, and test tasks run on the build host with `mise run verif
 
 - [x] 2.1 Add a throwaway `examples/activation.rs` that adopts the stdin listener, answers one line per connection, and exits after an idle timeout; proof: `mise run verify` passes
 - [x] 2.2 Run it under launchd on macOS: first connection, idle exit, relaunch; proof: the three scenarios in `specs/activation` hold, with the timing recorded
-- [ ] 2.3 Run it under `systemd --user` on Linux: the same three scenarios; proof: the same, with the timing recorded
-- [ ] 2.4 Record the result and any fallback decision in the design doc; proof: its open question 2 is answered
+- [x] 2.3 Run it under `systemd --user` on Linux: the same three scenarios; proof: the same, with the timing recorded
+- [x] 2.4 Record the result and any fallback decision in the design doc; proof: its open question 2 is answered

@@ -164,12 +164,37 @@ Both managers limit restarts, and an idle exit counts as a stop:
 - launchd documents a `ThrottleInterval` of 10 s between launches. Measured on
   macOS, socket-triggered relaunches after an idle exit were not delayed by it
   (17 ms), so the installer still sets it but no request waits on it;
-- systemd fails the socket after `TriggerLimitBurst` activations (20 per 2 s by
-  default for `Accept=no`), and the service after `StartLimitBurst` starts.
+- systemd fails the service after `StartLimitBurst` starts (5 per 10 s by
+  default), and the socket after `TriggerLimitBurst` activations (20 per 2 s by
+  default for `Accept=no`). A socket failed this way refuses every connection
+  until `systemctl --user reset-failed`. Measured on Linux with a 1 s idle
+  timeout and a connection every 0.9 to 1.2 s: under the defaults the service
+  hit its start limit after 10 starts, the socket entered `failed`, and 6 of 25
+  connections were refused. With `StartLimitBurst=100` in a 10 s interval, all
+  25 connections succeeded across 14 starts, including connections that
+  arrived while the daemon was exiting.
 
 The default idle timeout must be long enough that neither limit is reached in
 normal use. The installer sets both limits explicitly rather than inheriting
 the defaults.
+
+### Measured activation
+
+The throwaway `examples/activation.rs` was run on 2026-09-24 under both
+managers, with a 5 s idle timeout.
+
+| # | Observation | macOS, launchd | Linux, systemd 259 `--user` |
+|--:|:--|:--|:--|
+| 1 | Socket mode, before any connection | `srw-------`, no process | `srw-------` in a `drwx------` directory, no process |
+| 2 | First request, including the start | 490 ms | 12 ms |
+| 3 | Second request | same process | same process |
+| 4 | 7 s later | no process, socket present | no process, socket present |
+| 5 | Request right after the idle exit | new process, 17 ms | new process, 14 ms |
+| 6 | Request after 16 s idle | new process, 18 ms | new process, 28 ms |
+| 7 | Manager state afterwards | `runs = 3`, last exit code 0 | 3 starts, service and socket `success` |
+
+No connection was refused on either platform, so the stdin listener stands and
+the `listenfd` fallback is not needed.
 
 ## Layer B: `unixd-cache`
 
@@ -294,10 +319,3 @@ crate is published.
 1. Whether the envelope schema is hand-written in both Rust and any non-Rust
    client, proven by shared golden fixtures, or generated from one source. Start
    with fixtures; revisit only when drift is measured rather than predicted.
-2. Whether a relaunch after an idle exit keeps the waiting connection on
-   Linux. On macOS it does: measured on 2026-09-24 with the throwaway
-   `examples/activation.rs` under launchd, `inetdCompatibility` `Wait = true`,
-   and a 5 s idle timeout. The first connection started the daemon in 490 ms;
-   a connection right after the idle exit got a new process in 17 ms with no
-   refusal; the socket file survived every exit; `runs = 3`, last exit code 0.
-   The 10 s `ThrottleInterval` did not delay these socket-triggered relaunches.
