@@ -118,14 +118,11 @@ pub enum Maintenance {
     Pruned(Prune),
     /// The cache needs pruning but it failed. The write itself succeeded.
     ///
-    /// [`Error::Lock`] means a key lock was held, so the prune was skipped
-    /// rather than waited for. A marker file records the skipped prune, and
-    /// every later [`Cache::lock`] tries it again before taking its own locks.
-    /// Any other error means the prune started and failed; it is retried by
-    /// the next write over a hard cap or a scheduled [`Cache::prune`].
-    /// While key locks overlap without a gap, the cache can pass its hard
-    /// caps; a service that expects that load should call [`Cache::prune`]
-    /// on a schedule from a thread that holds no key lock.
+    /// [`Error::Lock`] means a key lock was held, so the prune was skipped; a
+    /// marker records it and the next [`Cache::lock`] retries it. Any other
+    /// error means the prune ran and failed; the next write over a cap
+    /// retries it. While key locks overlap with no gap, the cache can pass its
+    /// caps, so such a service should call [`Cache::prune`] on a schedule.
     Deferred(Error),
 }
 
@@ -190,12 +187,6 @@ impl Cache {
     /// `schema` is the version of the caller's stored value type. Raise it
     /// when that type changes: entries from a lower schema are then served
     /// only as [`Lookup::Stale`], and entries from a higher one are ignored.
-    /// While two schema versions share a root, each binary overwrites the
-    /// other's entry on its next store of that key, at the cost of one
-    /// upstream fetch per switch. The older binary never reads a newer
-    /// entry. The newer binary reads an older entry as stale while it is
-    /// inside its stale horizon, so it serves it only after an upstream
-    /// failure that serves stale.
     ///
     /// `root` is made absolute once, here, so a later change of working
     /// directory cannot move the cache.
@@ -249,12 +240,10 @@ impl Cache {
 
     /// Reads `key` without taking its lock.
     ///
-    /// A corrupt, mismatched, or expired entry reads as [`Lookup::Miss`] and is
-    /// left in place: a writer holding the key lock may replace it at any
-    /// moment, so only [`KeyLock::lookup`] and [`Cache::prune`] remove it.
-    /// Such an entry still counts toward [`Cache::usage`], so the hard caps
-    /// bound it. A value that no longer deserializes into `T` counts as
-    /// corrupt.
+    /// A corrupt, mismatched, or expired entry reads as [`Lookup::Miss`] and
+    /// stays on disk, since a lock holder may be replacing it; only
+    /// [`KeyLock::lookup`] and [`Cache::prune`] remove it. A value that no
+    /// longer deserializes into `T` counts as corrupt.
     ///
     /// # Errors
     ///
@@ -270,9 +259,7 @@ impl Cache {
     /// Hold it across "look up, fetch upstream, store" so concurrent callers
     /// for the same key fetch once.
     ///
-    /// When an earlier prune was skipped, this first retries it without
-    /// waiting for locks. If that prune runs, it reads every entry before this
-    /// call returns.
+    /// It first retries a skipped prune (see [`Maintenance::Deferred`]).
     ///
     /// # Errors
     ///
@@ -309,18 +296,13 @@ impl Cache {
         usage(&self.inner)
     }
 
-    /// Removes expired and invalid entries and leftover temporary files.
-    /// It opens and reads every entry while it holds the maintenance lock, so
-    /// every [`Cache::lock`] waits for it; [`Cache::lookup`] does not. The
-    /// pause grows with the number and size of entries: normally near
-    /// `hard_entries` and `hard_bytes`, but past them while prunes are
-    /// deferred (see [`Maintenance::Deferred`]). When the
-    /// cache was over a hard cap, it then removes the oldest entries until
-    /// both targets hold.
+    /// Removes expired and invalid entries, leftover temporary files, and
+    /// orphan lock files. When the cache was over a hard cap, it then removes
+    /// the oldest entries until both targets hold.
     ///
-    /// It also removes lock files whose entry is gone. It waits for every
-    /// holder of a key lock to finish, so a thread that holds a [`KeyLock`]
-    /// must drop it before calling this.
+    /// It reads every entry under the maintenance lock, so [`Cache::lock`]
+    /// callers wait for it. It waits for every key lock, so a thread holding
+    /// a [`KeyLock`] must drop it first.
     ///
     /// # Errors
     ///
@@ -330,9 +312,8 @@ impl Cache {
         prune(&self.inner, Wait::Block)
     }
 
-    /// Removes every entry, lock file, and pending-prune marker. It waits for
-    /// every holder of a key lock to finish, so a thread that holds a
-    /// [`KeyLock`] must drop it before calling this.
+    /// Removes every entry, lock file, and pending-prune marker. Like
+    /// [`Cache::prune`], it waits for every key lock.
     ///
     /// # Errors
     ///
@@ -395,12 +376,8 @@ impl KeyLock {
     ///
     /// Store only a successful, normalized response: there is no negative
     /// caching. A reader sees the previous entry or this one, never a partial
-    /// file. When the write takes the cache over a hard cap, the cache is
-    /// pruned after the lock is released. That prune does not wait: while any
-    /// key lock is held, in this process or another, it reports
-    /// [`Maintenance::Deferred`], and the next [`Cache::lock`] or write over
-    /// the cap tries again.
-    /// When the prune does run, this call returns only after it finishes.
+    /// file. A write over a hard cap prunes before returning, without waiting
+    /// for key locks (see [`Maintenance::Deferred`]).
     ///
     /// # Errors
     ///
@@ -529,9 +506,8 @@ fn read<T: DeserializeOwned>(inner: &Inner, key: &Key, locked: bool) -> Result<L
     )
 }
 
-/// Reports a miss for an unusable entry, and removes it when the key lock is
-/// held. Removal is best effort: a failure leaves a file the next prune
-/// removes.
+/// Reports a miss for an unusable entry, and removes it, best effort, when
+/// the key lock is held.
 fn discard<T>(path: &Path, locked: bool) -> Lookup<T> {
     if locked {
         let _ = private::remove(path);
@@ -565,6 +541,8 @@ enum Wait {
     Skip,
 }
 
+/// Clears the pending marker once it holds the lock, before the scan, so a
+/// prune skipped during the scan leaves a fresh one.
 fn prune(inner: &Inner, wait: Wait) -> Result<Prune, Error> {
     private::validate_root(&inner.root)?;
     let maintenance = private::open_lock(&inner.root.join(MAINTENANCE))?;
@@ -575,9 +553,6 @@ fn prune(inner: &Inner, wait: Wait) -> Result<Prune, Error> {
             TryLockError::Error(error) => Error::io(&error),
         })?,
     }
-    // Cleared before the scan, so a writer that skips its prune during the
-    // scan leaves a fresh marker. A prune that fails is not retried by every
-    // lock(); the next write over a hard cap prunes again.
     let _ = private::remove(&inner.root.join(PRUNE_PENDING));
     let entries = inner.root.join(ENTRIES);
     private::ensure_dir(&entries)?;
@@ -635,21 +610,14 @@ fn prune(inner: &Inner, wait: Wait) -> Result<Prune, Error> {
 }
 
 /// Runs a skipped prune if a marker records one, without waiting for locks.
-///
-/// Failure is not reported. While the maintenance lock is busy the marker
-/// stays and the next call tries again. Once a prune starts, it clears the
-/// marker, and a later write over a hard cap records a new one if needed.
 fn retry_pending_prune(inner: &Inner) {
     if fs::symlink_metadata(inner.root.join(PRUNE_PENDING)).is_ok() {
         let _ = prune(inner, Wait::Skip);
     }
 }
 
-/// Removes lock files whose entry is gone.
-///
-/// Called only under the exclusive maintenance lock. Every key lock is taken
-/// after a shared maintenance lock, so no process holds or is opening a key
-/// lock file here.
+/// Removes lock files whose entry is gone. Safe only under the exclusive
+/// maintenance lock, which no key lock holder can overlap.
 fn remove_orphan_locks(inner: &Inner) -> Result<u64, Error> {
     let locks = inner.root.join(LOCKS);
     private::ensure_dir(&locks)?;
@@ -671,10 +639,8 @@ fn remove_orphan_locks(inner: &Inner) -> Result<u64, Error> {
 }
 
 /// When a still-usable entry was stored, or `None` when it is expired,
-/// corrupt, or not the entry its file name claims.
-///
-/// The header is read through a buffered reader and the value is skipped
-/// without being kept, so memory stays small whatever the entry size.
+/// corrupt, or not the entry its file name claims. Streams the header and
+/// skips the value, so memory stays small.
 fn live_stored_at(path: &Path, now: u64) -> Option<u64> {
     let file = File::open(path).ok()?;
     let header = serde_json::from_reader::<_, Header>(BufReader::new(file)).ok()?;

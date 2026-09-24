@@ -1,7 +1,6 @@
 [settings]
 lockfile = true
 
-# Every tool this root declares must match mise.lock or mise.<env>.lock.
 [tool_config]
 locked = true
 
