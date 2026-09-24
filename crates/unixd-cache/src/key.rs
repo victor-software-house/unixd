@@ -146,16 +146,28 @@ fn hex(bytes: &[u8]) -> String {
     out
 }
 
-/// Splits camelCase at each lower-to-upper boundary, then lowercases and
-/// joins on `_`, so `accessToken` is checked as `access_token`.
+/// Splits camelCase before lowercasing, so `accessToken` is checked as
+/// `access_token` and `APIToken` as `api_token`.
+///
+/// A boundary goes before an uppercase letter that follows a lowercase letter
+/// or digit, or that starts a capitalized word after an acronym. A run of
+/// capitals such as `APIKEY` stays whole.
 fn forbidden(name: &str) -> bool {
+    let characters: Vec<char> = name.chars().collect();
     let mut split = String::with_capacity(name.len() + 4);
-    let mut previous_lower = false;
-    for character in name.chars() {
-        if character.is_ascii_uppercase() && previous_lower {
-            split.push('_');
+    for (index, &character) in characters.iter().enumerate() {
+        if index > 0 && character.is_ascii_uppercase() {
+            let previous = characters[index - 1];
+            let next_lower = characters
+                .get(index + 1)
+                .is_some_and(char::is_ascii_lowercase);
+            if previous.is_ascii_lowercase()
+                || previous.is_ascii_digit()
+                || (previous.is_ascii_uppercase() && next_lower)
+            {
+                split.push('_');
+            }
         }
-        previous_lower = character.is_ascii_lowercase() || character.is_ascii_digit();
         split.push(character);
     }
     let name = split.to_ascii_lowercase().replace(['-', ' ', '.'], "_");

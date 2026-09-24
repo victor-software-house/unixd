@@ -94,6 +94,11 @@ fn credential_and_presentation_parts_are_refused() {
         "authToken",
         "clientSecret",
         "sessionCookie",
+        "APIToken",
+        "APIKEY",
+        "APIKey",
+        "RequestID",
+        "OutputFORMAT",
         "X-Api-Key",
         "secret",
         "Authorization",
@@ -237,6 +242,8 @@ fn older_schema_is_stale_and_newer_schema_is_ignored() {
         old.lock(&key).unwrap().lookup::<String>().unwrap(),
         Lookup::Miss
     );
+    assert!(old.entry_path(&key).exists());
+    old.prune().unwrap();
     assert!(old.entry_path(&key).exists());
 }
 
@@ -484,6 +491,7 @@ fn store_over_the_cap_defers_while_another_key_is_locked() {
         cache.lookup::<String>(&key("c")).unwrap(),
         Lookup::Fresh(_)
     ));
+    assert!(root.path().join("prune.pending").exists());
     drop(held);
     assert!(matches!(
         store(&cache, &key("d"), "d"),
@@ -513,4 +521,24 @@ fn prune_and_clear_remove_lock_files() {
 
     cache.clear().unwrap();
     assert_eq!(fs::read_dir(&locks).unwrap().count(), 0);
+}
+
+#[test]
+fn next_lock_runs_a_deferred_prune() {
+    let root = tempfile::tempdir().unwrap();
+    let limits = Limits {
+        hard_entries: 1,
+        target_entries: 1,
+        ..Limits::default()
+    };
+    let (cache, _) = open(root.path(), 1, limits);
+    store(&cache, &key("a"), "a");
+    let held = cache.lock(&key("b")).unwrap();
+    store(&cache, &key("c"), "c");
+    drop(held);
+    assert_eq!(cache.usage().unwrap().entries, 2);
+
+    drop(cache.lock(&key("d")).unwrap());
+    assert_eq!(cache.usage().unwrap().entries, 1);
+    assert!(!root.path().join("prune.pending").exists());
 }

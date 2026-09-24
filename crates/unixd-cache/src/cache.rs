@@ -14,6 +14,7 @@ use crate::{Error, Key, Policy, Source, private};
 const ENTRIES: &str = "entries";
 const LOCKS: &str = "locks";
 const MAINTENANCE: &str = "maintenance.lock";
+const PRUNE_PENDING: &str = "prune.pending";
 const TEMPORARY_SUFFIX: &str = ".tmp";
 
 /// The current time in milliseconds since the Unix epoch.
@@ -118,8 +119,11 @@ pub enum Maintenance {
     /// The cache needs pruning but it failed. The write itself succeeded.
     ///
     /// [`Error::Lock`] means a key lock was held, so the prune was skipped
-    /// rather than waited for. While key locks stay held, the cache can pass
-    /// its hard caps; the next write over a cap tries again.
+    /// rather than waited for. A marker file records the skipped prune, and
+    /// every later [`Cache::lock`] tries it again before taking its own locks.
+    /// While key locks overlap without a gap, the cache can pass its hard
+    /// caps; a service that expects that load should call [`Cache::prune`]
+    /// on a schedule from a thread that holds no key lock.
     Deferred(Error),
 }
 
@@ -264,6 +268,7 @@ impl Cache {
     /// when a lock file is not private.
     pub fn lock(&self, key: &Key) -> Result<KeyLock, Error> {
         private::validate_root(&self.inner.root)?;
+        retry_pending_prune(&self.inner);
         private::ensure_dir(&self.inner.root.join(LOCKS))?;
         let maintenance = private::open_lock(&self.inner.root.join(MAINTENANCE))?;
         maintenance.lock_shared().map_err(|_| Error::Lock)?;
@@ -408,7 +413,13 @@ impl KeyLock {
                 if usage.entries > inner.limits.hard_entries
                     || usage.bytes > inner.limits.hard_bytes =>
             {
-                prune(&inner, Wait::Skip).map_or_else(Maintenance::Deferred, Maintenance::Pruned)
+                match prune(&inner, Wait::Skip) {
+                    Ok(prune) => Maintenance::Pruned(prune),
+                    Err(error) => {
+                        let _ = private::open_lock(&inner.root.join(PRUNE_PENDING));
+                        Maintenance::Deferred(error)
+                    }
+                }
             }
             Ok(_) => Maintenance::NotNeeded,
             Err(error) => Maintenance::Deferred(error),
@@ -592,9 +603,19 @@ fn prune(inner: &Inner, wait: Wait) -> Result<Prune, Error> {
     }
     private::sync_dir(&entries)?;
     outcome.locks_removed = remove_orphan_locks(inner)?;
+    private::remove(&inner.root.join(PRUNE_PENDING))?;
     outcome.after_entries = entries_left;
     outcome.after_bytes = bytes_left;
     Ok(outcome)
+}
+
+/// Runs a skipped prune if a marker records one, without waiting for locks.
+///
+/// Failure is not reported: the marker stays, and the next call tries again.
+fn retry_pending_prune(inner: &Inner) {
+    if fs::symlink_metadata(inner.root.join(PRUNE_PENDING)).is_ok() {
+        let _ = prune(inner, Wait::Skip);
+    }
 }
 
 /// Removes lock files whose entry is gone.
