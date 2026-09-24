@@ -1,6 +1,9 @@
 # Loaded when MISE_ENV contains `dev` (local default via .miserc.toml).
 # Compile this checkout.
 
+# mr_boxington on the rust entry needs mise 2026.9.2 or newer.
+min_version = "2026.9.2"
+
 [tools]
 committed = "1.1.11"
 lefthook = "2.1.10"

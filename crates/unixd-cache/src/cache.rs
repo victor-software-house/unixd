@@ -116,6 +116,10 @@ pub enum Maintenance {
     /// The write crossed a hard cap and the cache was pruned.
     Pruned(Prune),
     /// The cache needs pruning but it failed. The write itself succeeded.
+    ///
+    /// [`Error::Lock`] means a key lock was held, so the prune was skipped
+    /// rather than waited for. While key locks stay held, the cache can pass
+    /// its hard caps; the next write over a cap tries again.
     Deferred(Error),
 }
 
@@ -235,8 +239,10 @@ impl Cache {
     ///
     /// A corrupt, mismatched, or expired entry reads as [`Lookup::Miss`] and is
     /// left in place: a writer holding the key lock may replace it at any
-    /// moment, so only [`KeyLock::lookup`] and [`Cache::prune`] remove it. A
-    /// value that no longer deserializes into `T` counts as corrupt.
+    /// moment, so only [`KeyLock::lookup`] and [`Cache::prune`] remove it.
+    /// Such an entry still counts toward [`Cache::usage`], so the hard caps
+    /// bound it. A value that no longer deserializes into `T` counts as
+    /// corrupt.
     ///
     /// # Errors
     ///

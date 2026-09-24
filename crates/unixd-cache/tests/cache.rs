@@ -233,6 +233,11 @@ fn older_schema_is_stale_and_newer_schema_is_ignored() {
 
     assert_eq!(old.lookup::<String>(&key).unwrap(), Lookup::Miss);
     assert!(old.entry_path(&key).exists());
+    assert_eq!(
+        old.lock(&key).unwrap().lookup::<String>().unwrap(),
+        Lookup::Miss
+    );
+    assert!(old.entry_path(&key).exists());
 }
 
 #[test]
@@ -475,8 +480,17 @@ fn store_over_the_cap_defers_while_another_key_is_locked() {
             maintenance: Maintenance::Deferred(Error::Lock)
         }
     ));
+    assert!(matches!(
+        cache.lookup::<String>(&key("c")).unwrap(),
+        Lookup::Fresh(_)
+    ));
     drop(held);
-    assert_eq!(cache.prune().unwrap().after_entries, 1);
+    assert!(matches!(
+        store(&cache, &key("d"), "d"),
+        Stored::Written {
+            maintenance: Maintenance::Pruned(_)
+        }
+    ));
 }
 
 #[test]
