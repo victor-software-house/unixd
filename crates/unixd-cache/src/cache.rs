@@ -143,7 +143,7 @@ pub struct Prune {
     pub capacity_removed: u64,
     /// Temporary files left by writers that died mid-write.
     pub temporary_removed: u64,
-    /// Lock files whose entry no longer exists.
+    /// Lock files left by processes that died holding a key lock.
     pub locks_removed: u64,
 }
 
@@ -272,17 +272,16 @@ impl Cache {
         private::ensure_dir(&self.inner.root.join(LOCKS))?;
         let maintenance = private::open_lock(&self.inner.root.join(MAINTENANCE))?;
         maintenance.lock_shared().map_err(|_| Error::Lock)?;
-        let key_file = private::open_lock(
-            &self
-                .inner
-                .root
-                .join(LOCKS)
-                .join(format!("{}.lock", key.digest())),
-        )?;
-        key_file.lock().map_err(|_| Error::Lock)?;
+        let path = self
+            .inner
+            .root
+            .join(LOCKS)
+            .join(format!("{}.lock", key.digest()));
+        let key_file = private::lock_exclusive(&path)?;
         Ok(KeyLock {
             inner: Arc::clone(&self.inner),
             key: key.clone(),
+            path,
             _maintenance: maintenance,
             _key: key_file,
         })
@@ -297,9 +296,9 @@ impl Cache {
         usage(&self.inner)
     }
 
-    /// Removes expired and invalid entries, leftover temporary files, and
-    /// orphan lock files. When the cache was over a hard cap, it then removes
-    /// the oldest entries until both targets hold.
+    /// Removes expired and invalid entries, and the temporary and lock files
+    /// of processes that died. When the cache was over a hard cap, it then
+    /// removes the oldest entries until both targets hold.
     ///
     /// It reads every entry under the maintenance lock, so [`Cache::lock`]
     /// callers wait for it. It waits for every key lock, so a thread holding
@@ -346,8 +345,17 @@ impl Cache {
 pub struct KeyLock {
     inner: Arc<Inner>,
     key: Key,
+    path: PathBuf,
     _maintenance: File,
     _key: File,
+}
+
+impl Drop for KeyLock {
+    /// Deletes the lock file before the lock is released, so a lock file
+    /// exists only while its key is held.
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
+    }
 }
 
 impl fmt::Debug for KeyLock {
@@ -601,7 +609,7 @@ fn prune(inner: &Inner, wait: Wait) -> Result<Prune, Error> {
         }
     }
     private::sync_dir(&entries)?;
-    outcome.locks_removed = remove_orphan_locks(inner)?;
+    outcome.locks_removed = remove_stale_locks(inner)?;
     outcome.after_entries = entries_left;
     outcome.after_bytes = bytes_left;
     Ok(outcome)
@@ -613,23 +621,15 @@ fn retry_pending_prune(inner: &Inner) {
     }
 }
 
-/// Safe only under the exclusive maintenance lock, which no key lock holder
-/// can overlap.
-fn remove_orphan_locks(inner: &Inner) -> Result<u64, Error> {
+/// Under the exclusive maintenance lock no key lock is held, so every lock
+/// file left belongs to a process that died.
+fn remove_stale_locks(inner: &Inner) -> Result<u64, Error> {
     let locks = inner.root.join(LOCKS);
     private::ensure_dir(&locks)?;
     let mut removed = 0;
     for item in fs::read_dir(&locks).map_err(|error| Error::io(&error))? {
-        let path = item.map_err(|error| Error::io(&error))?.path();
-        let entry = path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .and_then(|name| name.strip_suffix(".lock"))
-            .map(|digest| entry_path(inner, digest));
-        if entry.is_none_or(|entry| !entry.exists()) {
-            private::remove(&path)?;
-            removed += 1;
-        }
+        private::remove(&item.map_err(|error| Error::io(&error))?.path())?;
+        removed += 1;
     }
     private::sync_dir(&locks)?;
     Ok(removed)

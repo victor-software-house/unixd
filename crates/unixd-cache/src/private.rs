@@ -63,6 +63,25 @@ pub(crate) fn open_lock(path: &Path) -> Result<File, Error> {
     Ok(file)
 }
 
+/// Locks the file at `path` exclusively. A holder deletes its file before
+/// unlocking, so a waiter can end up holding a deleted file; it then retries
+/// until `path` names the file it holds.
+pub(crate) fn lock_exclusive(path: &Path) -> Result<File, Error> {
+    loop {
+        let file = open_lock(path)?;
+        file.lock().map_err(|_| Error::Lock)?;
+        let held = file.metadata().map_err(|error| Error::io(&error))?;
+        match fs::symlink_metadata(path) {
+            Ok(named) if named.dev() == held.dev() && named.ino() == held.ino() => {
+                return Ok(file);
+            }
+            Ok(_) => {}
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(Error::io(&error)),
+        }
+    }
+}
+
 /// Removes anything at `path` that is not a regular file.
 pub(crate) fn regular(path: &Path) -> Result<Option<Metadata>, Error> {
     match fs::symlink_metadata(path) {

@@ -498,26 +498,63 @@ fn store_over_the_cap_defers_while_another_key_is_locked() {
 }
 
 #[test]
-fn prune_and_clear_remove_lock_files() {
+fn lock_files_exist_only_while_held() {
     let root = tempfile::tempdir().unwrap();
-    let (cache, clock) = open(root.path(), 1, Limits::default());
+    let (cache, _) = open(root.path(), 1, Limits::default());
     let locks = root.path().join("locks");
-    cache
-        .lock(&key("expiring"))
-        .unwrap()
-        .store("x", Policy::new(Duration::from_millis(1), Duration::ZERO))
-        .unwrap();
-    store(&cache, &key("kept"), "kept");
-    drop(cache.lock(&key("never stored")).unwrap());
-    assert_eq!(fs::read_dir(&locks).unwrap().count(), 3);
+    for index in 0..1_000 {
+        drop(cache.lock(&key(&index.to_string())).unwrap());
+    }
+    store(&cache, &key("stored"), "value");
+    assert_eq!(fs::read_dir(&locks).unwrap().count(), 0);
 
-    clock.advance(10);
-    assert_eq!(cache.prune().unwrap().locks_removed, 2);
+    let held = cache.lock(&key("held")).unwrap();
     assert_eq!(fs::read_dir(&locks).unwrap().count(), 1);
+    drop(held);
+    assert_eq!(fs::read_dir(&locks).unwrap().count(), 0);
+}
 
+#[test]
+fn a_key_lock_stays_exclusive_while_holders_delete_its_file() {
+    let root = tempfile::tempdir().unwrap();
+    let (cache, _) = open(root.path(), 1, Limits::default());
+    let inside = Arc::new(AtomicU64::new(0));
+    let workers: Vec<_> = (0..8)
+        .map(|_| {
+            let cache = cache.clone();
+            let inside = Arc::clone(&inside);
+            thread::spawn(move || {
+                for _ in 0..200 {
+                    let lock = cache.lock(&key("shared")).unwrap();
+                    assert_eq!(inside.fetch_add(1, Ordering::SeqCst), 0);
+                    thread::yield_now();
+                    inside.fetch_sub(1, Ordering::SeqCst);
+                    drop(lock);
+                }
+            })
+        })
+        .collect();
+    for worker in workers {
+        worker.join().unwrap();
+    }
+}
+
+#[test]
+fn prune_and_clear_remove_lock_files_of_dead_processes() {
+    let root = tempfile::tempdir().unwrap();
+    let (cache, _) = open(root.path(), 1, Limits::default());
+    let leftover = root
+        .path()
+        .join("locks")
+        .join(format!("{}.lock", key("dead").digest()));
+    fs::write(&leftover, b"").unwrap();
+    assert_eq!(cache.prune().unwrap().locks_removed, 1);
+    assert!(!leftover.exists());
+
+    fs::write(&leftover, b"").unwrap();
     fs::write(root.path().join("prune.pending"), b"").unwrap();
     cache.clear().unwrap();
-    assert_eq!(fs::read_dir(&locks).unwrap().count(), 0);
+    assert!(!leftover.exists());
     assert!(!root.path().join("prune.pending").exists());
 }
 
