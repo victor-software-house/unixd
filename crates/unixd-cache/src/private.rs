@@ -5,6 +5,7 @@ use std::fs::{self, File, Metadata, Permissions, TryLockError};
 use std::io::{self, Read as _};
 use std::os::unix::fs::{MetadataExt as _, PermissionsExt as _};
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 use rustix::fs::{Mode, OFlags};
 
@@ -136,7 +137,7 @@ pub(crate) fn regular(path: &Path) -> Result<Option<Metadata>, Error> {
 /// `None` and stays in place. `NONBLOCK` keeps a FIFO from blocking the open.
 /// Opening a symlink or a socket fails with an errno that varies by platform,
 /// so a failed open checks the file type before reporting an error.
-pub(crate) fn read(path: &Path) -> Result<Option<Vec<u8>>, Error> {
+pub(crate) fn read(path: &Path) -> Result<Option<(Vec<u8>, Metadata)>, Error> {
     let flags = OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOFOLLOW | OFlags::NONBLOCK;
     let mut file = match rustix::fs::open(path, flags, Mode::empty()) {
         Ok(fd) => File::from(fd),
@@ -156,7 +157,17 @@ pub(crate) fn read(path: &Path) -> Result<Option<Vec<u8>>, Error> {
     let mut bytes = Vec::new();
     file.read_to_end(&mut bytes)
         .map_err(|error| Error::io(&error))?;
-    Ok(Some(bytes))
+    Ok(Some((bytes, metadata)))
+}
+
+/// Sets the modification time of the regular file at `path`, without
+/// following a symlink.
+pub(crate) fn touch(path: &Path, time: SystemTime) -> Result<(), Error> {
+    let flags = OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOFOLLOW | OFlags::NONBLOCK;
+    let file = File::from(
+        rustix::fs::open(path, flags, Mode::empty()).map_err(|errno| Error::io(&errno.into()))?,
+    );
+    file.set_modified(time).map_err(|error| Error::io(&error))
 }
 
 /// Removes whatever is at `path` without following a symlink.

@@ -1,4 +1,4 @@
-use std::fs::{self, File, TryLockError};
+use std::fs::{self, File, Metadata, TryLockError};
 use std::io::{BufReader, ErrorKind, Write as _};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -38,8 +38,9 @@ impl Clock for SystemClock {
     }
 }
 
-/// Size bounds. A write that takes the cache over a hard cap prunes it down to
-/// the targets. A target above its hard cap acts as the hard cap.
+/// Size and age bounds. A write that takes the cache over a hard cap prunes
+/// it down to the targets, least recently used first. A target above its hard
+/// cap acts as the hard cap.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Limits {
     /// An entry larger than this is returned to the caller but not stored.
@@ -52,11 +53,20 @@ pub struct Limits {
     pub target_entries: u64,
     /// Total bytes a prune reduces to.
     pub target_bytes: u64,
+    /// A prune removes an entry not read or written for this long, even
+    /// unexpired.
+    pub unused_after: Duration,
+    /// A write prunes when the last prune is older than this, even under the
+    /// caps.
+    pub sweep_every: Duration,
+    /// A hit records its use at most this often, so most reads write nothing.
+    pub touch_after: Duration,
 }
 
 impl Default for Limits {
     /// 8 MiB per entry, and 10,000 entries or 256 MiB before pruning to 8,000
-    /// entries and 200 MiB.
+    /// entries and 200 MiB. Entries unused for 30 days go at the next daily
+    /// sweep; a hit records its use at most hourly.
     fn default() -> Self {
         Self {
             max_entry_bytes: 8 * 1024 * 1024,
@@ -64,6 +74,9 @@ impl Default for Limits {
             hard_bytes: 256 * 1024 * 1024,
             target_entries: 8_000,
             target_bytes: 200 * 1024 * 1024,
+            unused_after: Duration::from_hours(30 * 24),
+            sweep_every: Duration::from_hours(24),
+            touch_after: Duration::from_hours(1),
         }
     }
 }
@@ -112,9 +125,10 @@ pub enum Stored {
 /// Pruning that followed a write.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Maintenance {
-    /// The cache was within its hard caps.
+    /// The cache was within its hard caps and no sweep was due.
     NotNeeded,
-    /// The write crossed a hard cap and the cache was pruned.
+    /// The write crossed a hard cap or a sweep was due, and the cache was
+    /// pruned.
     Pruned(Prune),
     /// The cache needs pruning but it failed. The write itself succeeded, and
     /// the next write over a cap retries.
@@ -136,7 +150,10 @@ pub struct Prune {
     pub after_bytes: u64,
     /// Entries removed because they were expired or invalid.
     pub expired_removed: u64,
-    /// Unexpired entries removed, oldest first, to reach the targets.
+    /// Unexpired entries removed because they were unused for
+    /// [`Limits::unused_after`].
+    pub unused_removed: u64,
+    /// Entries removed, least recently used first, to reach the targets.
     pub capacity_removed: u64,
     /// Temporary files left by writers that died mid-write.
     pub temporary_removed: u64,
@@ -220,6 +237,11 @@ impl Cache {
         private::ensure_dir(&root.join(ENTRIES))?;
         private::ensure_dir(&root.join(LOCKS))?;
         drop(private::open_lock(&root.join(MAINTENANCE))?);
+        let pruning = root.join(PRUNE_LOCK);
+        if fs::symlink_metadata(&pruning).is_err() {
+            drop(private::open_lock(&pruning)?);
+            private::touch(&pruning, at(clock.now_ms()))?;
+        }
         Ok(Self {
             inner: Arc::new(Inner {
                 root,
@@ -290,9 +312,10 @@ impl Cache {
         usage(&self.inner)
     }
 
-    /// Removes expired and invalid entries, and the temporary and lock files
-    /// of processes that died. When the cache was over a hard cap, it then
-    /// removes the oldest entries until both targets hold.
+    /// Removes expired, invalid, and unused entries, and the temporary and
+    /// lock files of processes that died. When the cache was over a hard cap,
+    /// it then removes the least recently used entries until both targets
+    /// hold.
     ///
     /// It removes a file only under its key's lock, taken without waiting, and
     /// skips a key someone holds; so it never blocks [`Cache::lock`] and may
@@ -401,7 +424,8 @@ impl KeyLock {
         let maintenance = match usage(&inner) {
             Ok(usage)
                 if usage.entries > inner.limits.hard_entries
-                    || usage.bytes > inner.limits.hard_bytes =>
+                    || usage.bytes > inner.limits.hard_bytes
+                    || sweep_due(&inner) =>
             {
                 match prune(&inner, Wait::Skip) {
                     Ok(prune) => Maintenance::Pruned(prune),
@@ -459,7 +483,7 @@ struct Value<T> {
 fn read<T: DeserializeOwned>(inner: &Inner, key: &Key, locked: bool) -> Result<Lookup<T>, Error> {
     private::ensure_dir(&inner.root.join(ENTRIES))?;
     let path = entry_path(inner, key.digest());
-    let Some(bytes) = private::read(&path)? else {
+    let Some((bytes, metadata)) = private::read(&path)? else {
         return Ok(discard(&path, locked));
     };
     let Ok(header) = serde_json::from_slice::<Header>(&bytes) else {
@@ -479,6 +503,9 @@ fn read<T: DeserializeOwned>(inner: &Inner, key: &Key, locked: bool) -> Result<L
     let Ok(Value { value }) = serde_json::from_slice::<Value<T>>(&bytes) else {
         return Ok(discard(&path, locked));
     };
+    if now.saturating_sub(modified_ms(&metadata)) > millis(inner.limits.touch_after) {
+        let _ = private::touch(&path, at(now));
+    }
     let cached = Cached {
         value,
         stored_at_ms: header.stored_at_ms,
@@ -512,6 +539,9 @@ fn write_atomic(inner: &Inner, digest: &str, bytes: &[u8]) -> Result<(), Error> 
         .tempfile_in(&entries)
         .map_err(|error| Error::io(&error))?;
     file.write_all(bytes).map_err(|error| Error::io(&error))?;
+    file.as_file()
+        .set_modified(at(inner.clock.now_ms()))
+        .map_err(|error| Error::io(&error))?;
     file.as_file()
         .sync_all()
         .map_err(|error| Error::io(&error))?;
@@ -577,19 +607,24 @@ fn prune(inner: &Inner, wait: Wait) -> Result<Prune, Error> {
         let Some(metadata) = private::regular(&path)? else {
             continue;
         };
-        if let Some(stored_at_ms) = live_stored_at(&path, now) {
-            kept.push((stored_at_ms, digest.to_owned(), metadata.len()));
+        let used_ms = modified_ms(&metadata);
+        let removed = if !live(&path, now) {
+            &mut outcome.expired_removed
+        } else if now.saturating_sub(used_ms) > millis(inner.limits.unused_after) {
+            &mut outcome.unused_removed
         } else {
-            private::remove(&path)?;
-            outcome.expired_removed += 1;
-            left.remove(metadata.len());
-        }
+            kept.push((used_ms, digest.to_owned(), metadata.len()));
+            continue;
+        };
+        private::remove(&path)?;
+        *removed += 1;
+        left.remove(metadata.len());
     }
     if before.entries > inner.limits.hard_entries || before.bytes > inner.limits.hard_bytes {
         kept.sort();
         let target_entries = inner.limits.target_entries.min(inner.limits.hard_entries);
         let target_bytes = inner.limits.target_bytes.min(inner.limits.hard_bytes);
-        for (stored_at_ms, digest, size) in kept {
+        for (used_ms, digest, size) in kept {
             if left.entries <= target_entries && left.bytes <= target_bytes {
                 break;
             }
@@ -597,7 +632,7 @@ fn prune(inner: &Inner, wait: Wait) -> Result<Prune, Error> {
                 continue;
             };
             let path = entry_path(inner, &digest);
-            if live_stored_at(&path, now) != Some(stored_at_ms) {
+            if private::regular(&path)?.is_none_or(|metadata| modified_ms(&metadata) != used_ms) {
                 continue;
             }
             private::remove(&path)?;
@@ -606,6 +641,9 @@ fn prune(inner: &Inner, wait: Wait) -> Result<Prune, Error> {
         }
     }
     private::sync_dir(&entries)?;
+    pruning
+        .set_modified(at(now))
+        .map_err(|error| Error::io(&error))?;
     outcome.after_entries = left.entries;
     outcome.after_bytes = left.bytes;
     Ok(outcome)
@@ -640,13 +678,38 @@ fn remove_unheld_locks(inner: &Inner) -> Result<u64, Error> {
 
 /// Streams the header and discards the value, so memory stays small; the
 /// whole file is still read.
-fn live_stored_at(path: &Path, now: u64) -> Option<u64> {
-    let file = File::open(path).ok()?;
-    let header = serde_json::from_reader::<_, Header>(BufReader::new(file)).ok()?;
-    (header.consistent()
-        && entry_digest(path) == Some(header.digest.as_str())
-        && now <= header.stale_until_ms)
-        .then_some(header.stored_at_ms)
+fn live(path: &Path, now: u64) -> bool {
+    File::open(path)
+        .ok()
+        .and_then(|file| serde_json::from_reader::<_, Header>(BufReader::new(file)).ok())
+        .is_some_and(|header| {
+            header.consistent()
+                && entry_digest(path) == Some(header.digest.as_str())
+                && now <= header.stale_until_ms
+        })
+}
+
+/// `prune.lock`'s modification time records the last prune, on the cache's
+/// clock.
+fn sweep_due(inner: &Inner) -> bool {
+    fs::symlink_metadata(inner.root.join(PRUNE_LOCK)).is_ok_and(|metadata| {
+        inner.clock.now_ms().saturating_sub(modified_ms(&metadata))
+            > millis(inner.limits.sweep_every)
+    })
+}
+
+/// Entry and `prune.lock` modification times are set from the cache's clock,
+/// so they compare with [`Clock::now_ms`].
+fn modified_ms(metadata: &Metadata) -> u64 {
+    metadata
+        .modified()
+        .ok()
+        .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+        .map_or(0, millis)
+}
+
+fn at(ms: u64) -> SystemTime {
+    UNIX_EPOCH + Duration::from_millis(ms)
 }
 
 fn usage(inner: &Inner) -> Result<Usage, Error> {

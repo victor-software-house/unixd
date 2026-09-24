@@ -614,3 +614,71 @@ fn prune_and_clear_remove_lock_files_of_dead_processes() {
     cache.clear().unwrap();
     assert!(!leftover.exists());
 }
+
+const HOUR_MS: u64 = 60 * 60 * 1000;
+const DAY_MS: u64 = 24 * HOUR_MS;
+
+fn store_for_a_year(cache: &Cache, key: &Key, value: &str) -> Stored {
+    cache
+        .lock(key)
+        .unwrap()
+        .store(
+            value,
+            Policy::new(Duration::from_hours(365 * 24), Duration::ZERO),
+        )
+        .unwrap()
+}
+
+#[test]
+fn least_recently_used_is_evicted_first() {
+    let root = tempfile::tempdir().unwrap();
+    let limits = Limits {
+        hard_entries: 2,
+        target_entries: 2,
+        ..Limits::default()
+    };
+    let (cache, clock) = open(root.path(), 1, limits);
+    store_for_a_year(&cache, &key("read"), "read");
+    clock.advance(1);
+    store_for_a_year(&cache, &key("unread"), "unread");
+    clock.advance(2 * HOUR_MS);
+    assert!(matches!(
+        cache.lookup::<String>(&key("read")).unwrap(),
+        Lookup::Fresh(_)
+    ));
+    clock.advance(1);
+    store_for_a_year(&cache, &key("new"), "new");
+    assert_eq!(
+        cache.lookup::<String>(&key("unread")).unwrap(),
+        Lookup::Miss
+    );
+    assert!(matches!(
+        cache.lookup::<String>(&key("read")).unwrap(),
+        Lookup::Fresh(_)
+    ));
+}
+
+#[test]
+fn a_daily_sweep_removes_unused_entries() {
+    let root = tempfile::tempdir().unwrap();
+    let (cache, clock) = open(root.path(), 1, Limits::default());
+    store_for_a_year(&cache, &key("unused"), "unused");
+    clock.advance(31 * DAY_MS);
+    let Stored::Written {
+        maintenance: Maintenance::Pruned(prune),
+    } = store_for_a_year(&cache, &key("fresh"), "fresh")
+    else {
+        panic!("expected the sweep to run");
+    };
+    assert_eq!(prune.unused_removed, 1);
+    assert_eq!(
+        cache.lookup::<String>(&key("unused")).unwrap(),
+        Lookup::Miss
+    );
+    assert_eq!(
+        store_for_a_year(&cache, &key("next"), "next"),
+        Stored::Written {
+            maintenance: Maintenance::NotNeeded
+        }
+    );
+}
