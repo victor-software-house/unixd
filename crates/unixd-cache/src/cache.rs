@@ -1,5 +1,5 @@
 use std::fs::{self, File, Metadata, TryLockError};
-use std::io::{BufRead as _, BufReader, ErrorKind, Write as _};
+use std::io::{BufRead as _, BufReader, ErrorKind, Read as _, Write as _};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -24,10 +24,13 @@ const CACHEDIR_TAG_TEXT: &str = "Signature: 8a477f597d28d172789f06886806bc55
 
 /// The per-user cache directory for `name`: `~/Library/Caches/<name>` on
 /// macOS, and `$XDG_CACHE_HOME/<name>` or `~/.cache/<name>` elsewhere. `None`
-/// when `HOME` is unset. The OS cleans neither, so [`Limits`] bounds the cache.
+/// when `HOME` is unset or relative. The OS cleans neither, so [`Limits`]
+/// bounds the cache.
 #[must_use]
 pub fn default_root(name: &str) -> Option<PathBuf> {
-    let home = env::var_os("HOME").map(PathBuf::from);
+    let home = env::var_os("HOME")
+        .map(PathBuf::from)
+        .filter(|path| path.is_absolute());
     let base = if cfg!(target_os = "macos") {
         home?.join("Library").join("Caches")
     } else {
@@ -640,7 +643,7 @@ fn prune(inner: &Inner, wait: Wait) -> Result<Prune, Error> {
             continue;
         };
         let used_ms = modified_ms(&metadata);
-        let removed = if !live(&path, now) {
+        let removed = if !live(&path, now, inner.limits.max_entry_bytes) {
             &mut outcome.expired_removed
         } else if now.saturating_sub(used_ms) > millis(inner.limits.unused_after) {
             &mut outcome.unused_removed
@@ -708,8 +711,8 @@ fn remove_unheld_locks(inner: &Inner) -> Result<u64, Error> {
     Ok(removed)
 }
 
-fn live(path: &Path, now: u64) -> bool {
-    read_header(path).is_some_and(|header| {
+fn live(path: &Path, now: u64, limit: u64) -> bool {
+    read_header(path, limit).is_some_and(|header| {
         header.consistent()
             && entry_digest(path) == Some(header.digest.as_str())
             && now <= header.stale_until_ms
@@ -718,10 +721,11 @@ fn live(path: &Path, now: u64) -> bool {
 
 /// Reads up to the `value` key and no further. `Written` serializes `value`
 /// last, and a quote inside a string is escaped, so the first `,"value":` is
-/// the key. A corrupt value is left for [`KeyLock::lookup`] to find.
-fn read_header(path: &Path) -> Option<Header> {
+/// the key. A corrupt value is left for [`KeyLock::lookup`] to find. It reads
+/// at most `limit` bytes, the most a stored entry can hold.
+fn read_header(path: &Path, limit: u64) -> Option<Header> {
     const VALUE_KEY: &[u8] = b",\"value\":";
-    let mut reader = BufReader::new(File::open(path).ok()?);
+    let mut reader = BufReader::new(File::open(path).ok()?.take(limit));
     let mut prefix = Vec::new();
     loop {
         let chunk = reader.fill_buf().ok()?;
@@ -729,13 +733,14 @@ fn read_header(path: &Path) -> Option<Header> {
             return None;
         }
         let read = chunk.len();
+        let start = prefix.len().saturating_sub(VALUE_KEY.len() - 1);
         prefix.extend_from_slice(chunk);
         reader.consume(read);
-        if let Some(end) = prefix
+        if let Some(end) = prefix[start..]
             .windows(VALUE_KEY.len())
             .position(|window| window == VALUE_KEY)
         {
-            prefix.truncate(end);
+            prefix.truncate(start + end);
             prefix.push(b'}');
             return serde_json::from_slice(&prefix).ok();
         }

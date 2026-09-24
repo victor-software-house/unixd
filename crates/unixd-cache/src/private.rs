@@ -161,7 +161,7 @@ pub(crate) fn read(path: &Path) -> Result<Option<(Vec<u8>, Metadata)>, Error> {
 }
 
 /// Writes `bytes` to a new `0600` file at `path`, leaving an existing one as
-/// it is.
+/// it is. A failed write removes the file, so the next call writes it again.
 pub(crate) fn create_private(path: &Path, bytes: &[u8]) -> Result<(), Error> {
     let flags = OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::CLOEXEC | OFlags::NOFOLLOW;
     let mut file = match rustix::fs::open(path, flags, Mode::RUSR | Mode::WUSR) {
@@ -169,7 +169,10 @@ pub(crate) fn create_private(path: &Path, bytes: &[u8]) -> Result<(), Error> {
         Err(rustix::io::Errno::EXIST) => return Ok(()),
         Err(errno) => return Err(Error::io(&errno.into())),
     };
-    file.write_all(bytes).map_err(|error| Error::io(&error))
+    file.write_all(bytes).map_err(|error| {
+        let _ = fs::remove_file(path);
+        Error::io(&error)
+    })
 }
 
 /// Sets the modification time of the regular file at `path`, without
