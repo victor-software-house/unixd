@@ -264,8 +264,8 @@ impl Cache {
     ///
     /// # Errors
     ///
-    /// [`Error::Lock`] when a lock cannot be taken, and [`Error::UnsafeRoot`]
-    /// when a lock file is not private.
+    /// [`Error::Lock`] when a lock cannot be taken, [`Error::UnsafeRoot`] when
+    /// a lock file is not private, and [`Error::Io`] when one cannot be opened.
     pub fn lock(&self, key: &Key) -> Result<KeyLock, Error> {
         private::validate_root(&self.inner.root)?;
         retry_pending_prune(&self.inner);

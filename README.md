@@ -17,9 +17,9 @@ Tokio onto the second consumer's direct path and a cache onto the first.
 
 ## Status
 
-Unimplemented. The repository carries the design and the scaffold; both
-crates are `0.0.0` with empty public surfaces. The code will be extracted
-from a working consumer daemon and cache, slice by slice. Read
+`unixd-cache` is implemented and unreleased (`0.0.0`). `unixd`, the daemon
+runtime, is still an empty scaffold. The rest of the code will be extracted
+from a working consumer daemon, slice by slice. Read
 [`docs/design/daemon-and-cache.md`](docs/design/daemon-and-cache.md) for the
 contract, and [`docs/research/`](docs/research/) for the evidence behind it,
 before adding code.

@@ -45,21 +45,25 @@ pub(crate) fn ensure_dir(path: &Path) -> Result<(), Error> {
     }
 }
 
-/// Opens or creates a `0600` lock file without following a symlink.
+/// Opens or creates a `0600` lock file without following a symlink. A failed
+/// open is [`Error::UnsafeRoot`] only when something other than a regular
+/// file is at `path`; otherwise it keeps its errno.
 pub(crate) fn open_lock(path: &Path) -> Result<File, Error> {
-    let file = File::from(
-        rustix::fs::open(
-            path,
-            OFlags::RDWR | OFlags::CREATE | OFlags::CLOEXEC | OFlags::NOFOLLOW,
-            Mode::RUSR | Mode::WUSR,
-        )
-        .map_err(|_| Error::UnsafeRoot)?,
-    );
+    let flags = OFlags::RDWR | OFlags::CREATE | OFlags::CLOEXEC | OFlags::NOFOLLOW;
+    let file = match rustix::fs::open(path, flags, Mode::RUSR | Mode::WUSR) {
+        Ok(fd) => File::from(fd),
+        Err(errno) => {
+            return Err(match fs::symlink_metadata(path) {
+                Ok(metadata) if !metadata.file_type().is_file() => Error::UnsafeRoot,
+                _ => Error::io(&errno.into()),
+            });
+        }
+    };
     let metadata = file.metadata().map_err(|error| Error::io(&error))?;
     if !metadata.file_type().is_file() || !owned(&metadata) {
         return Err(Error::UnsafeRoot);
     }
-    rustix::fs::fchmod(&file, Mode::RUSR | Mode::WUSR).map_err(|_| Error::Lock)?;
+    rustix::fs::fchmod(&file, Mode::RUSR | Mode::WUSR).map_err(|errno| Error::io(&errno.into()))?;
     Ok(file)
 }
 
