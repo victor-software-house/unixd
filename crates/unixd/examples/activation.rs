@@ -15,6 +15,10 @@ const IO_TIMEOUT: Duration = Duration::from_secs(2);
 /// The longest request line read before the reply.
 const MAX_LINE: usize = 4096;
 
+/// The most characters echoed back. The reply stays under 1 KiB, well inside
+/// the socket send buffer, so writing it never waits on a slow reader.
+const MAX_ECHO: usize = 256;
+
 fn main() -> io::Result<()> {
     std::env::set_current_dir("/")?;
     let idle = std::env::var("UNIXD_IDLE_SECS")
@@ -45,20 +49,22 @@ fn main() -> io::Result<()> {
 }
 
 /// Answers one connection. Its errors belong to that client alone and never
-/// end the process. Each read waits only for the time left before one
-/// deadline, because a read timeout alone restarts on every byte.
+/// end the process. Each read and the reply wait only for the time left
+/// before one deadline, because a socket timeout alone restarts on every
+/// call.
 fn serve(stream: &UnixStream, pid: u32) -> io::Result<()> {
     let deadline = Instant::now() + IO_TIMEOUT;
+    let left = || {
+        deadline
+            .checked_duration_since(Instant::now())
+            .filter(|left| !left.is_zero())
+            .ok_or_else(|| io::Error::from(io::ErrorKind::TimedOut))
+    };
     stream.set_nonblocking(false)?;
-    stream.set_write_timeout(Some(IO_TIMEOUT))?;
     let mut request = Vec::new();
     let mut chunk = [0_u8; 512];
     while !request.contains(&b'\n') && request.len() < MAX_LINE {
-        let left = deadline
-            .checked_duration_since(Instant::now())
-            .filter(|left| !left.is_zero())
-            .ok_or_else(|| io::Error::from(io::ErrorKind::TimedOut))?;
-        stream.set_read_timeout(Some(left))?;
+        stream.set_read_timeout(Some(left()?))?;
         let read = (&*stream).read(&mut chunk)?;
         if read == 0 {
             break;
@@ -66,6 +72,13 @@ fn serve(stream: &UnixStream, pid: u32) -> io::Result<()> {
         request.extend_from_slice(&chunk[..read]);
     }
     let text = String::from_utf8_lossy(&request);
-    let line = text.lines().next().unwrap_or_default();
+    let line: String = text
+        .lines()
+        .next()
+        .unwrap_or_default()
+        .chars()
+        .take(MAX_ECHO)
+        .collect();
+    stream.set_write_timeout(Some(left()?))?;
     writeln!(&*stream, "pid={pid} echo={line}")
 }
