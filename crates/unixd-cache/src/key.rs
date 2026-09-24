@@ -14,7 +14,9 @@ const FORBIDDEN_WORDS: &[&str] = &[
     "token",
     "tokens",
     "secret",
+    "secrets",
     "password",
+    "passwords",
     "passwd",
     "credential",
     "credentials",
@@ -27,7 +29,9 @@ const FORBIDDEN_WORDS: &[&str] = &[
 /// Compounds that mark a credential. Each is matched at the start or the end
 /// of any run of adjacent words with the separators removed, so `access_key`,
 /// `x-api-key`, `ACCESSKEY`, and `oauthaccesstoken` match while
-/// `profession_id` does not match `sessionid`.
+/// `profession_id` does not match `sessionid`. End matching also refuses
+/// `possession_id`, a deliberate false positive, and a compound in the middle
+/// of one word, such as `myapikeyvalue`, is not matched.
 const FORBIDDEN_SUBSTRINGS: &[&str] = &[
     "apikey",
     "accesskey",
@@ -50,7 +54,17 @@ const FORBIDDEN_SUBSTRINGS: &[&str] = &[
 /// Word endings that mark a credential run together with a qualifier, such
 /// as `jwttoken` or `githubsecret`. A word that only starts with one, such
 /// as `tokenizer` or `secretary`, passes.
-const FORBIDDEN_ENDINGS: &[&str] = &["token", "tokens", "secret", "password", "passwd"];
+const FORBIDDEN_ENDINGS: &[&str] = &[
+    "token",
+    "tokens",
+    "secret",
+    "secrets",
+    "password",
+    "passwords",
+    "passwd",
+    "credential",
+    "credentials",
+];
 
 /// Whole names that describe how or where a result is shown, or which request
 /// asked for it, never what was fetched.
@@ -178,11 +192,15 @@ fn hex(bytes: &[u8]) -> String {
 ///
 /// A boundary goes before an uppercase letter that follows a lowercase letter
 /// or digit, or that starts a capitalized word after an acronym. A run of
-/// capitals such as `APIKEY` stays whole.
+/// capitals such as `APIKEY` stays whole. A boundary also goes before a
+/// digit that follows a letter, so `token2` is checked as `token_2`.
 fn forbidden(name: &str) -> bool {
     let characters: Vec<char> = name.chars().collect();
     let mut split = String::with_capacity(name.len() + 4);
     for (index, &character) in characters.iter().enumerate() {
+        if index > 0 && character.is_ascii_digit() && characters[index - 1].is_ascii_alphabetic() {
+            split.push('_');
+        }
         if index > 0 && character.is_ascii_uppercase() {
             let previous = characters[index - 1];
             let next_lower = characters

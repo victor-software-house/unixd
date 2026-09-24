@@ -127,6 +127,12 @@ fn credential_and_presentation_parts_are_refused() {
         "refreshtokens",
         "github_accesstoken",
         "myPassword",
+        "clientSecrets",
+        "dbPasswords",
+        "token2",
+        "secret1",
+        "awscredentials",
+        "possession_id",
         "X-Api-Key",
         "secret",
         "Authorization",
@@ -155,6 +161,8 @@ fn credential_and_presentation_parts_are_refused() {
         "secretary_count",
         "passage_id",
         "cookbook",
+        "myapikeyvalue",
+        "sha256_digest",
         "max_results",
     ] {
         assert!(Key::builder("search").part(name, "value").is_ok(), "{name}");
