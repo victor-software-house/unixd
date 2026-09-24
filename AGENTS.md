@@ -6,6 +6,9 @@ cache. Library only; this repository ships no command.
 Read [`docs/design/daemon-and-cache.md`](docs/design/daemon-and-cache.md)
 before writing code. It is the contract, not a sketch.
 
+This repo's queue is [`tasks.yaml`](tasks.yaml) (`UXD-###`), run with
+`mise run q`.
+
 ## Layout
 
 ```text
@@ -22,8 +25,10 @@ docs/design/
    implements; the direct path binds a no-op.
 2. **`unsafe` is forbidden** at the workspace level, and every lint group is
    denied. Do not relax a lint to land a change.
-3. **Activation stays behind the trait.** One implementation ships. No call
-   site branches on which one is active.
+3. **The service manager owns the socket.** launchd on macOS and
+   `systemd --user` on Linux, one `Activation` implementation each. No call
+   site outside the activation module branches on the platform. The daemon
+   never spawns itself.
 4. **No credential, path, or peer identity in a log line, an error, or a
    cache key.** Cache identity is about what was fetched, never who asked or
    how it will be rendered.

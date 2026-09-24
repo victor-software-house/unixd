@@ -5,6 +5,7 @@ context: |
   (unixd) and a bounded on-disk cache (unixd-cache). It ships no command.
   Contracts: AGENTS.md and docs/design/daemon-and-cache.md, which is the
   contract, not a sketch.
+  Work queue: tasks.yaml (UXD-###). One openspec change maps to one queue row.
   Writing style: plain English, short sentences, numbered lists, no em-dashes,
   no emojis. This repository is public: no local paths, machine names, or
   private repository names in any artifact.
