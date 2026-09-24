@@ -3,17 +3,17 @@
 //! connection with its own process id, and exits after an idle timeout
 //! (`UNIXD_IDLE_SECS`, default 5) without touching the socket path.
 
-use std::io::{self, BufRead, BufReader, Read, Write};
+use std::io::{self, Read, Write};
 use std::os::fd::AsFd;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::time::{Duration, Instant};
 
-/// A client that stalls or sends an endless line cannot hold the only accept
-/// loop past this, so the idle exit still fires.
+/// The whole request and the reply must finish within this, so a client that
+/// stalls or trickles bytes cannot hold the only accept loop past it.
 const IO_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// The longest request line read before the reply.
-const MAX_LINE: u64 = 4096;
+const MAX_LINE: usize = 4096;
 
 fn main() -> io::Result<()> {
     std::env::set_current_dir("/")?;
@@ -45,12 +45,27 @@ fn main() -> io::Result<()> {
 }
 
 /// Answers one connection. Its errors belong to that client alone and never
-/// end the process.
+/// end the process. Each read waits only for the time left before one
+/// deadline, because a read timeout alone restarts on every byte.
 fn serve(stream: &UnixStream, pid: u32) -> io::Result<()> {
+    let deadline = Instant::now() + IO_TIMEOUT;
     stream.set_nonblocking(false)?;
-    stream.set_read_timeout(Some(IO_TIMEOUT))?;
     stream.set_write_timeout(Some(IO_TIMEOUT))?;
-    let mut line = String::new();
-    BufReader::new(stream.take(MAX_LINE)).read_line(&mut line)?;
-    writeln!(&*stream, "pid={pid} echo={}", line.trim_end())
+    let mut request = Vec::new();
+    let mut chunk = [0_u8; 512];
+    while !request.contains(&b'\n') && request.len() < MAX_LINE {
+        let left = deadline
+            .checked_duration_since(Instant::now())
+            .filter(|left| !left.is_zero())
+            .ok_or_else(|| io::Error::from(io::ErrorKind::TimedOut))?;
+        stream.set_read_timeout(Some(left))?;
+        let read = (&*stream).read(&mut chunk)?;
+        if read == 0 {
+            break;
+        }
+        request.extend_from_slice(&chunk[..read]);
+    }
+    let text = String::from_utf8_lossy(&request);
+    let line = text.lines().next().unwrap_or_default();
+    writeln!(&*stream, "pid={pid} echo={line}")
 }
