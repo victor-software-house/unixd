@@ -144,10 +144,10 @@ between the stale-socket probe and the bind, and a connection made between the
 idle exit and the unlink is dropped. Socket activation removes both windows,
 because the manager owns the socket and no client ever starts the daemon.
 
-## Not yet researched
+## Not in this record
 
-Framing, envelopes, drain, coalescing, and socket placement are researched for
-the transport slice and recorded in this directory when they land.
+Framing, envelopes, drain, coalescing, and socket placement are in the
+[transport and lifecycle research][transport-research].
 
 [apple-launchd]: https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html
 [cacache]: https://github.com/zkat/cacache-rs/blob/66eae4b78f75eb2a38a2d25e838a56561294aebf/src/index.rs#L91
@@ -181,3 +181,4 @@ the transport slice and recorded in this directory when they land.
 [tempfile]: https://crates.io/crates/tempfile
 [tokio-listener]: https://github.com/vi/tokio-listener/blob/d51b9c90c5cd26928c5e33b339600e8e4de2f473/src/listener.rs#L221-L252
 [tokio-ucred]: https://github.com/tokio-rs/tokio/blob/75fef53d0a8590c2d1dbb63672aa7b7d1ef51155/tokio/src/net/unix/ucred.rs#L294-L338
+[transport-research]: transport-and-lifecycle.md

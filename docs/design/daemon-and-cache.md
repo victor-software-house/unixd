@@ -3,7 +3,8 @@
 - **Status:** Proposed, revised 2026-09-24
 - **Scope:** both crates in this workspace
 - **Platforms:** macOS on Apple Silicon and Linux. Nothing else.
-- **Evidence:** [`docs/research/`][research]
+- **Evidence:** [`docs/research/`][research]: activation and cache,
+  transport and lifecycle, and the first consumer's extraction map
 
 ## What this decides
 
@@ -248,8 +249,9 @@ request id. Cache identity is about *what was fetched*, never *who asked* or
 - one maintenance lock for prune and clear;
 - write to a temporary file in the same directory with [`tempfile`][tempfile], `fsync` it,
   rename atomically with `persist`, then `fsync` the parent directory;
-- coalescing is a trait the daemon layer implements in process; the direct path
-  binds a no-op implementation.
+- the daemon coalesces concurrent identical requests in process; the direct
+  path does not, and the key lock makes a second process wait for the first
+  one's entry. See the [coalescing change][coalescing].
 
 Disk stays canonical. There is no daemon-only in-memory copy that can diverge
 from it.
@@ -282,8 +284,8 @@ Each slice is one pull request that leaves the repository releasable.
    client, over a handler trait.
 4. **`unixd` activation and lifecycle.** The stdin listener, unit install and
    uninstall on both platforms, drain, idle exit.
-5. **Coalescing seam.** The trait, the in-process daemon implementation, the
-   direct no-op, and the cross-mode equivalence test.
+5. **Coalescing.** Single flight in the daemon, and the cross-mode
+   equivalence test.
 6. **First consumer adopts.** The consumer replaces its own daemon, transport,
    and cache with these crates, and deletes its self-spawn code.
 
@@ -326,3 +328,4 @@ crate is published.
 [tempfile]: https://crates.io/crates/tempfile
 [tokio]: https://tokio.rs
 [tokio-ucred]: https://docs.rs/tokio/latest/tokio/net/struct.UnixStream.html#method.peer_cred
+[coalescing]: ../../openspec/changes/coalescing/design.md
