@@ -24,9 +24,10 @@ const FORBIDDEN_WORDS: &[&str] = &[
     "apikey",
 ];
 
-/// Substrings that mark a credential. They are matched against the name with
-/// every separator removed, so `access_key`, `accessKey`, and `ACCESSKEY` all
-/// match `accesskey`.
+/// Prefixes that mark a credential. Each is matched at the start of every
+/// word of the split name, with the separators after that point removed, so
+/// `access_key`, `accessKey`, `x-api-key`, and `ACCESSKEY` match while
+/// `profession_id` does not match `sessionid`.
 const FORBIDDEN_SUBSTRINGS: &[&str] = &[
     "apikey",
     "accesskey",
@@ -115,8 +116,10 @@ impl KeyBuilder {
     /// Cache identity is what was fetched, never who asked or how the result
     /// will be shown. A name that marks a credential (`token`, `secret`,
     /// `api_key`, `authorization`, …), an output format, a destination path, or
-    /// a request id is refused. Only the name is checked: a credential under an
-    /// innocent name is the caller's bug.
+    /// a request id is refused. Words are matched whole, so `tokenizer` and
+    /// `secretary` pass, and so does a run-together name such as `jwttoken`
+    /// that no listed prefix covers. Only the name is
+    /// checked: a credential under an innocent name is the caller's bug.
     ///
     /// # Errors
     ///
@@ -189,11 +192,24 @@ fn forbidden(name: &str) -> bool {
         }
         split.push(character);
     }
-    let name = split.to_ascii_lowercase().replace(['-', ' ', '.'], "_");
-    let squashed = name.replace('_', "");
+    let name: String = split
+        .to_ascii_lowercase()
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let words: Vec<&str> = name.split('_').filter(|word| !word.is_empty()).collect();
     FORBIDDEN_NAMES.contains(&name.as_str())
-        || FORBIDDEN_SUBSTRINGS
-            .iter()
-            .any(|word| squashed.contains(word))
-        || name.split('_').any(|word| FORBIDDEN_WORDS.contains(&word))
+        || words.iter().any(|word| FORBIDDEN_WORDS.contains(word))
+        || (0..words.len()).any(|start| {
+            let tail = words[start..].concat();
+            FORBIDDEN_SUBSTRINGS
+                .iter()
+                .any(|prefix| tail.starts_with(prefix))
+        })
 }

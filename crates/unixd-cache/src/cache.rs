@@ -191,8 +191,9 @@ impl Cache {
     /// While two schema versions share a root, each binary overwrites the
     /// other's entry on its next store of that key, at the cost of one
     /// upstream fetch per switch. The older binary never reads a newer
-    /// entry. The newer binary reads an older entry as stale, so it serves
-    /// it only after an upstream failure that serves stale.
+    /// entry. The newer binary reads an older entry as stale while it is
+    /// inside its stale horizon, so it serves it only after an upstream
+    /// failure that serves stale.
     ///
     /// `root` is made absolute once, here, so a later change of working
     /// directory cannot move the cache.
@@ -305,8 +306,9 @@ impl Cache {
     /// Removes expired and invalid entries and leftover temporary files.
     /// It opens and reads every entry while it holds the maintenance lock, so
     /// every [`Cache::lock`] waits for it; [`Cache::lookup`] does not. The
-    /// pause grows with the entry count and total size, which `hard_entries`
-    /// and `hard_bytes` bound, loosely while prunes are deferred. When the
+    /// pause grows with the number and size of entries: normally near
+    /// `hard_entries` and `hard_bytes`, but past them while prunes are
+    /// deferred (see [`Maintenance::Deferred`]). When the
     /// cache was over a hard cap, it then removes the oldest entries until
     /// both targets hold.
     ///
@@ -562,21 +564,10 @@ fn prune(inner: &Inner, wait: Wait) -> Result<Prune, Error> {
             TryLockError::Error(error) => Error::io(&error),
         })?,
     }
-    let marker = inner.root.join(PRUNE_PENDING);
-    let _ = private::remove(&marker);
-    prune_locked(inner).inspect_err(|_| {
-        let _ = private::open_lock(&marker);
-    })
-}
-
-/// The prune itself, under the exclusive maintenance lock.
-///
-/// The caller removes the pending marker before this runs, so a writer that
-/// skips its prune during the scan leaves a fresh marker, and restores the
-/// marker when this fails. Marker writes are best effort: a leftover marker
-/// costs one extra prune, and a missing one waits for the next write over a
-/// cap.
-fn prune_locked(inner: &Inner) -> Result<Prune, Error> {
+    // Cleared before the scan, so a writer that skips its prune during the
+    // scan leaves a fresh marker. A prune that fails is not retried by every
+    // lock(); the next write over a hard cap prunes again.
+    let _ = private::remove(&inner.root.join(PRUNE_PENDING));
     let entries = inner.root.join(ENTRIES);
     private::ensure_dir(&entries)?;
     let before = usage(inner)?;
@@ -634,7 +625,9 @@ fn prune_locked(inner: &Inner) -> Result<Prune, Error> {
 
 /// Runs a skipped prune if a marker records one, without waiting for locks.
 ///
-/// Failure is not reported: the marker stays, and the next call tries again.
+/// Failure is not reported. While the maintenance lock is busy the marker
+/// stays and the next call tries again. Once a prune starts, it clears the
+/// marker, and a later write over a hard cap records a new one if needed.
 fn retry_pending_prune(inner: &Inner) {
     if fs::symlink_metadata(inner.root.join(PRUNE_PENDING)).is_ok() {
         let _ = prune(inner, Wait::Skip);

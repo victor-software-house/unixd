@@ -109,6 +109,10 @@ fn credential_and_presentation_parts_are_refused() {
         "accesskey",
         "sessionId",
         "passphrase",
+        "x_api_key",
+        "X-API-Key",
+        "api:key",
+        "client+secret",
         "X-Api-Key",
         "secret",
         "Authorization",
@@ -132,6 +136,8 @@ fn credential_and_presentation_parts_are_refused() {
         "url",
         "tokenizer_model",
         "tokenizerModel",
+        "profession_id",
+        "grid_tokenizer",
         "max_results",
     ] {
         assert!(Key::builder("search").part(name, "value").is_ok(), "{name}");
@@ -258,7 +264,7 @@ fn older_schema_is_stale_and_newer_schema_is_ignored() {
 }
 
 #[test]
-fn corrupt_and_mismatched_entries_are_removed() {
+fn unlocked_lookup_keeps_and_locked_lookup_removes_invalid_entries() {
     let root = tempfile::tempdir().unwrap();
     let (cache, _) = open(root.path(), 1, Limits::default());
     let key = key("rust");
