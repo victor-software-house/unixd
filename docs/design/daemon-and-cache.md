@@ -161,8 +161,9 @@ Idle timeout is configurable and disableable. There is no PID file.
 
 Both managers limit restarts, and an idle exit counts as a stop:
 
-- launchd waits `ThrottleInterval` (10 s by default) before it relaunches a job,
-  so the first request after an idle exit can wait that long;
+- launchd documents a `ThrottleInterval` of 10 s between launches. Measured on
+  macOS, socket-triggered relaunches after an idle exit were not delayed by it
+  (17 ms), so the installer still sets it but no request waits on it;
 - systemd fails the socket after `TriggerLimitBurst` activations (20 per 2 s by
   default for `Accept=no`), and the service after `StartLimitBurst` starts.
 
