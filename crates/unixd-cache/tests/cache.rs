@@ -6,6 +6,7 @@
 )]
 
 use std::os::unix::fs::{PermissionsExt as _, symlink};
+use std::os::unix::net::UnixListener;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, mpsc};
@@ -238,6 +239,20 @@ fn unlocked_lookup_keeps_and_locked_lookup_removes_invalid_entries() {
         Lookup::Miss
     );
     assert!(fs::symlink_metadata(&path).is_err());
+
+    // An entry path is longer than a socket address allows, so bind short and
+    // move it.
+    let short = root.path().join("s");
+    let socket = UnixListener::bind(&short).unwrap();
+    fs::rename(&short, &path).unwrap();
+    assert_eq!(cache.lookup::<String>(&key).unwrap(), Lookup::Miss);
+    assert!(fs::symlink_metadata(&path).is_ok());
+    assert_eq!(
+        cache.lock(&key).unwrap().lookup::<String>().unwrap(),
+        Lookup::Miss
+    );
+    assert!(fs::symlink_metadata(&path).is_err());
+    drop(socket);
 }
 
 #[test]

@@ -97,12 +97,20 @@ pub(crate) fn regular(path: &Path) -> Result<Option<Metadata>, Error> {
 
 /// Reads a regular file without following a symlink. Anything else reads as
 /// `None` and stays in place. `NONBLOCK` keeps a FIFO from blocking the open.
+/// Opening a symlink or a socket fails with an errno that varies by platform,
+/// so a failed open checks the file type before reporting an error.
 pub(crate) fn read(path: &Path) -> Result<Option<Vec<u8>>, Error> {
     let flags = OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOFOLLOW | OFlags::NONBLOCK;
     let mut file = match rustix::fs::open(path, flags, Mode::empty()) {
         Ok(fd) => File::from(fd),
-        Err(rustix::io::Errno::NOENT | rustix::io::Errno::LOOP) => return Ok(None),
-        Err(errno) => return Err(Error::io(&errno.into())),
+        Err(rustix::io::Errno::NOENT) => return Ok(None),
+        Err(errno) => {
+            return match fs::symlink_metadata(path) {
+                Ok(metadata) if !metadata.file_type().is_file() => Ok(None),
+                Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+                _ => Err(Error::io(&errno.into())),
+            };
+        }
     };
     let metadata = file.metadata().map_err(|error| Error::io(&error))?;
     if !metadata.file_type().is_file() {
