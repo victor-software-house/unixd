@@ -9,6 +9,10 @@ context: |
   Writing style: plain English, short sentences, numbered lists, no em-dashes,
   no emojis. This repository is public: no local paths, machine names, or
   private repository names in any artifact.
+  Links: every tool, crate, PR, commit, run, and file reference is a
+  clickable reference-style link, defined once at the end of the file. Link it
+  again when it returns far from its last link. Pin code links to a commit. No
+  bare URLs outside command code blocks.
 
 rules:
   proposal:

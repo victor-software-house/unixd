@@ -3,6 +3,7 @@
 - **Status:** Proposed, revised 2026-09-24
 - **Scope:** both crates in this workspace
 - **Platforms:** macOS on Apple Silicon and Linux. Nothing else.
+- **Evidence:** [`docs/research/`][research]
 
 ## What this decides
 
@@ -10,7 +11,7 @@ Two crates, separately selectable:
 
 | Crate | Owns | Async runtime |
 |:--|:--|:--|
-| `unixd` | Activation, listener ownership, peer identity, bounded framing, lifecycle, unit install, client transport | Tokio |
+| `unixd` | Activation, listener ownership, peer identity, bounded framing, lifecycle, unit install, client transport | [Tokio][tokio] |
 | `unixd-cache` | Freshness, stale-if-error policy, cross-process locks, atomic writes, bounds, prune | None |
 
 ## Why two crates rather than one
@@ -23,7 +24,7 @@ The two known consumer shapes need different halves.
    to work identically in its direct no-daemon mode, which has no async runtime
    at all. It takes both, and `unixd-cache` must not require a reactor.
 
-One crate containing both would force a Tokio dependency on the direct path of
+One crate containing both would force a [Tokio][tokio] dependency on the direct path of
 consumer 2 and a cache module on consumer 1. Neither is acceptable, so the
 split is a requirement.
 
@@ -69,8 +70,8 @@ socket, listens on it, and starts the daemon on the first connection:
 
 | Platform | Manager | Unit |
 |:--|:--|:--|
-| macOS | `launchd`, per-user agent | a LaunchAgent plist with a `Sockets` entry |
-| Linux | `systemd --user` | a `.socket` unit with `Accept=no` and a matching `.service` |
+| macOS | [`launchd`][launchd-plist], per-user agent | a LaunchAgent plist with a `Sockets` entry |
+| Linux | [`systemd --user`][systemd-socket] | a `.socket` unit with `Accept=no` and a matching `.service` |
 
 Self-spawn is out, not deferred. It needs a start lock, a readiness poll,
 stale-socket adoption, and convergence tests for concurrent first clients.
@@ -85,17 +86,17 @@ whole class, because no client process is ever the parent.
 Both managers can hand the listening socket to the process on standard input:
 
 - launchd: `inetdCompatibility` with `Wait = true`;
-- systemd: `StandardInput=socket` on a single-socket `Accept=no` unit.
+- systemd: [`StandardInput=socket`][systemd-exec] on a single-socket `Accept=no` unit.
 
 The daemon then takes it with safe standard-library calls only:
 `stdin().as_fd().try_clone_to_owned()`, `UnixListener::from`,
-`set_nonblocking(true)`, and `tokio::net::UnixListener::from_std`. No FFI and no
+`set_nonblocking(true)`, and [`tokio::net::UnixListener::from_std`][tokio]. No FFI and no
 `unsafe`, so the workspace `unsafe_code = "forbid"` stands.
 
 This path is chosen over the named-socket APIs for one reason. No maintained
 crate hands a macOS caller an owned listener from `launch_activate_socket`
 without the caller writing `unsafe` to adopt a raw descriptor. On Linux,
-`listenfd` does return an owned listener, and it is the fallback if the stdin
+[`listenfd`][listenfd] does return an owned listener, and it is the fallback if the stdin
 path fails its live proof. launchd's man page asks new jobs to avoid
 `inetdCompatibility`; the live proof in slice 1 decides whether that warning
 matters here.
@@ -115,7 +116,7 @@ than incidental:
 
 ### Installation contract
 
-`unixd` writes the units itself. `service-manager` cannot express a systemd
+`unixd` writes the units itself. [`service-manager`][service-manager] cannot express a systemd
 socket and service pair, and no other maintained crate can either.
 
 - macOS: write the plist to `~/Library/LaunchAgents/`, then
@@ -131,7 +132,7 @@ socket and service pair, and no other maintained crate can either.
 ### Peer identity
 
 Every accepted connection is checked for the same effective UID as the serving
-process, with `tokio::net::UnixStream::peer_cred()`, before any frame is read.
+process, with [`tokio::net::UnixStream::peer_cred()`][tokio-ucred], before any frame is read.
 It uses `getpeereid` on macOS and `SO_PEERCRED` on Linux. A mismatch closes the
 connection without a reply and without a log entry containing the peer's
 identity.
@@ -180,21 +181,11 @@ the defaults.
 
 ### Measured activation
 
-The throwaway `examples/activation.rs` was run on 2026-09-24 under both
-managers, with a 5 s idle timeout.
-
-| # | Observation | macOS, launchd | Linux, systemd 259 `--user` |
-|--:|:--|:--|:--|
-| 1 | Socket mode, before any connection | `srw-------`, no process | `srw-------` in a `drwx------` directory, no process |
-| 2 | First request, including the start | 490 ms | 12 ms |
-| 3 | Second request | same process | same process |
-| 4 | 7 s later | no process, socket present | no process, socket present |
-| 5 | Request right after the idle exit | new process, 17 ms | new process, 14 ms |
-| 6 | Request after 16 s idle | new process, 18 ms | new process, 28 ms |
-| 7 | Manager state afterwards | `runs = 3`, last exit code 0 | 3 starts, service and socket `success` |
-
-No connection was refused on either platform, so the stdin listener stands and
-the `listenfd` fallback is not needed.
+The throwaway [`examples/activation.rs`][example] ran under both managers on
+2026-09-24. No connection was refused on either platform, the socket survived
+every idle exit, and relaunches took 14 to 28 ms. The stdin listener stands,
+and the `listenfd` fallback is not needed. The
+[measurements][measurements] are in the research record.
 
 ## Layer B: `unixd-cache`
 
@@ -212,7 +203,7 @@ provenance records which, so an entry written under one regime is not silently
 reinterpreted under another.
 
 `Cache-Control` parsing sits behind an optional `http` feature built on
-`http-cache-semantics`, which is synchronous. That crate does not parse
+[`http-cache-semantics`][http-cache-semantics], which is synchronous. That crate does not parse
 `stale-if-error`, so this crate reads that one directive itself. Without the
 feature, the caller passes an already-parsed policy and the crate has no HTTP
 dependency.
@@ -240,8 +231,10 @@ Only successful normalized responses are cached. There is no negative caching.
 
 ### Keys
 
-The caller supplies key inputs; the crate hashes them with the schema version.
-The crate rejects a key input set at construction if it would embed a
+The caller supplies named key parts; the crate sorts them and hashes them
+with the crate's own entry format version. The caller's payload schema is
+stored in each entry, not hashed into the key, so a schema bump still finds
+the old entries and serves them as stale. The crate rejects a key input set at construction if it would embed a
 credential, a credential hash, an output format, a destination path, or a
 request id. Cache identity is about *what was fetched*, never *who asked* or
 *how it will be rendered*.
@@ -250,10 +243,10 @@ request id. Cache identity is about *what was fetched*, never *who asked* or
 
 - validate on every read; a corrupt or schema-invalid entry is a miss and is
   removed best-effort;
-- one file lock per key, `std::fs::File::lock`, held across direct and daemon
+- one file lock per key, [`std::fs::File::lock`][file-lock], held across direct and daemon
   processes alike;
 - one maintenance lock for prune and clear;
-- write to a temporary file in the same directory with `tempfile`, `fsync` it,
+- write to a temporary file in the same directory with [`tempfile`][tempfile], `fsync` it,
   rename atomically with `persist`, then `fsync` the parent directory;
 - coalescing is a trait the daemon layer implements in process; the direct path
   binds a no-op implementation.
@@ -280,7 +273,7 @@ shared cache across consumers.
 Each slice is one pull request that leaves the repository releasable.
 
 1. **Activation proof.** A throwaway example daemon receives its socket on
-   stdin from launchd on macOS and from systemd on Linux, serves, exits idle,
+   stdin from [launchd][launchd-plist] on macOS and from [systemd][systemd-socket] on Linux, serves, exits idle,
    and is relaunched by the next connection. This decides the activation path
    before any crate code depends on it.
 2. **`unixd-cache`.** Extract the consumer's cache: policy types, key
@@ -319,3 +312,17 @@ crate is published.
 1. Whether the envelope schema is hand-written in both Rust and any non-Rust
    client, proven by shared golden fixtures, or generated from one source. Start
    with fixtures; revisit only when drift is measured rather than predicted.
+
+[example]: ../../crates/unixd/examples/activation.rs
+[file-lock]: https://doc.rust-lang.org/std/fs/struct.File.html#method.lock
+[http-cache-semantics]: https://crates.io/crates/http-cache-semantics
+[launchd-plist]: https://keith.github.io/xcode-man-pages/launchd.plist.5.html
+[listenfd]: https://crates.io/crates/listenfd
+[measurements]: ../research/activation-and-cache.md#4-live-activation-measurements
+[research]: ../research/
+[service-manager]: https://crates.io/crates/service-manager
+[systemd-exec]: https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html
+[systemd-socket]: https://www.freedesktop.org/software/systemd/man/latest/systemd.socket.html
+[tempfile]: https://crates.io/crates/tempfile
+[tokio]: https://tokio.rs
+[tokio-ucred]: https://docs.rs/tokio/latest/tokio/net/struct.UnixStream.html#method.peer_cred

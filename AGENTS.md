@@ -25,8 +25,8 @@ docs/design/
    implements; the direct path binds a no-op.
 2. **`unsafe` is forbidden** at the workspace level, and every lint group is
    denied. Do not relax a lint to land a change.
-3. **The service manager owns the socket.** launchd on macOS and
-   `systemd --user` on Linux, one `Activation` implementation each. No call
+3. **The service manager owns the socket.** [launchd][launchd] on macOS and
+   [`systemd --user`][systemd] on Linux, one `Activation` implementation each. No call
    site outside the activation module branches on the platform. The daemon
    never spawns itself.
 4. **No credential, path, or peer identity in a log line, an error, or a
@@ -58,3 +58,6 @@ Plan a behaviour or contract change as an OpenSpec change in
 `openspec/changes/<name>/` before writing code. `openspec/config.yaml` holds
 this repository's context and rules, and `openspec validate <name>` checks the
 change.
+
+[launchd]: https://keith.github.io/xcode-man-pages/launchd.plist.5.html
+[systemd]: https://www.freedesktop.org/software/systemd/man/latest/systemd.socket.html
