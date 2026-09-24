@@ -481,7 +481,49 @@ fn relative_root_is_made_absolute() {
 }
 
 #[test]
-fn store_over_the_cap_defers_while_another_key_is_locked() {
+fn store_over_the_cap_prunes_while_another_key_is_locked() {
+    let root = tempfile::tempdir().unwrap();
+    let limits = Limits {
+        hard_entries: 1,
+        target_entries: 1,
+        ..Limits::default()
+    };
+    let (cache, clock) = open(root.path(), 1, limits);
+    store(&cache, &key("a"), "a");
+    let held = cache.lock(&key("b")).unwrap();
+    clock.advance(1);
+    let stored = store(&cache, &key("c"), "c");
+    assert!(matches!(
+        stored,
+        Stored::Written {
+            maintenance: Maintenance::Pruned(_)
+        }
+    ));
+    assert_eq!(cache.lookup::<String>(&key("a")).unwrap(), Lookup::Miss);
+    drop(held);
+}
+
+#[test]
+fn prune_skips_a_held_key() {
+    let root = tempfile::tempdir().unwrap();
+    let limits = Limits {
+        hard_entries: 1,
+        target_entries: 1,
+        ..Limits::default()
+    };
+    let (cache, clock) = open(root.path(), 1, limits);
+    store(&cache, &key("old"), "old");
+    let held = cache.lock(&key("old")).unwrap();
+    clock.advance(1);
+    store(&cache, &key("new"), "new");
+    assert!(matches!(held.lookup::<String>().unwrap(), Lookup::Fresh(_)));
+    assert_eq!(cache.lookup::<String>(&key("new")).unwrap(), Lookup::Miss);
+    assert_eq!(cache.prune().unwrap().capacity_removed, 0);
+    drop(held);
+}
+
+#[test]
+fn a_running_prune_defers_the_next() {
     let root = tempfile::tempdir().unwrap();
     let limits = Limits {
         hard_entries: 1,
@@ -490,22 +532,23 @@ fn store_over_the_cap_defers_while_another_key_is_locked() {
     };
     let (cache, _) = open(root.path(), 1, limits);
     store(&cache, &key("a"), "a");
-    let held = cache.lock(&key("b")).unwrap();
-    let stored = store(&cache, &key("c"), "c");
-    assert!(matches!(
-        stored,
+    let running = fs::File::options()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(root.path().join("prune.lock"))
+        .unwrap();
+    running.lock().unwrap();
+    assert_eq!(
+        store(&cache, &key("b"), "b"),
         Stored::Written {
             maintenance: Maintenance::Deferred(Error::Lock)
         }
-    ));
+    );
+    drop(running);
     assert!(matches!(
-        cache.lookup::<String>(&key("c")).unwrap(),
-        Lookup::Fresh(_)
-    ));
-    assert!(root.path().join("prune.pending").exists());
-    drop(held);
-    assert!(matches!(
-        store(&cache, &key("d"), "d"),
+        store(&cache, &key("c"), "c"),
         Stored::Written {
             maintenance: Maintenance::Pruned(_)
         }
@@ -558,49 +601,16 @@ fn a_key_lock_stays_exclusive_while_holders_delete_its_file() {
 fn prune_and_clear_remove_lock_files_of_dead_processes() {
     let root = tempfile::tempdir().unwrap();
     let (cache, _) = open(root.path(), 1, Limits::default());
-    let leftover = root
-        .path()
-        .join("locks")
-        .join(format!("{}.lock", key("dead").digest()));
+    let locks = root.path().join("locks");
+    let leftover = locks.join(format!("{}.lock", key("dead").digest()));
     fs::write(&leftover, b"").unwrap();
+    let held = cache.lock(&key("held")).unwrap();
     assert_eq!(cache.prune().unwrap().locks_removed, 1);
     assert!(!leftover.exists());
+    assert_eq!(fs::read_dir(&locks).unwrap().count(), 1);
+    drop(held);
 
     fs::write(&leftover, b"").unwrap();
-    fs::write(root.path().join("prune.pending"), b"").unwrap();
     cache.clear().unwrap();
     assert!(!leftover.exists());
-    assert!(!root.path().join("prune.pending").exists());
-}
-
-#[test]
-fn next_lock_runs_a_deferred_prune() {
-    let root = tempfile::tempdir().unwrap();
-    let limits = Limits {
-        hard_entries: 1,
-        target_entries: 1,
-        ..Limits::default()
-    };
-    let (cache, _) = open(root.path(), 1, limits);
-    store(&cache, &key("a"), "a");
-    let held = cache.lock(&key("b")).unwrap();
-    store(&cache, &key("c"), "c");
-    drop(held);
-    assert_eq!(cache.usage().unwrap().entries, 2);
-
-    drop(cache.lock(&key("d")).unwrap());
-    assert_eq!(cache.usage().unwrap().entries, 1);
-    assert!(!root.path().join("prune.pending").exists());
-}
-
-#[test]
-fn a_marker_under_the_caps_is_cleared_by_the_next_lock() {
-    let root = tempfile::tempdir().unwrap();
-    let (cache, _) = open(root.path(), 1, Limits::default());
-    store(&cache, &key("a"), "a");
-    let marker = root.path().join("prune.pending");
-    fs::write(&marker, b"").unwrap();
-    drop(cache.lock(&key("b")).unwrap());
-    assert!(!marker.exists());
-    assert_eq!(cache.usage().unwrap().entries, 1);
 }

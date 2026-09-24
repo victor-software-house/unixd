@@ -14,7 +14,7 @@ use crate::{Error, Key, Policy, Source, private};
 const ENTRIES: &str = "entries";
 const LOCKS: &str = "locks";
 const MAINTENANCE: &str = "maintenance.lock";
-const PRUNE_PENDING: &str = "prune.pending";
+const PRUNE_LOCK: &str = "prune.lock";
 const TEMPORARY_SUFFIX: &str = ".tmp";
 
 /// The current time in milliseconds since the Unix epoch.
@@ -116,13 +116,10 @@ pub enum Maintenance {
     NotNeeded,
     /// The write crossed a hard cap and the cache was pruned.
     Pruned(Prune),
-    /// The cache needs pruning but it failed. The write itself succeeded.
+    /// The cache needs pruning but it failed. The write itself succeeded, and
+    /// the next write over a cap retries.
     ///
-    /// [`Error::Lock`] means a key lock was held, so the prune was skipped; a
-    /// marker records it and the next [`Cache::lock`] retries it. Any other
-    /// error means the prune ran and failed; the next write over a cap
-    /// retries it. While key locks overlap with no gap, the cache can pass its
-    /// caps, so such a service should call [`Cache::prune`] on a schedule.
+    /// [`Error::Lock`] means another prune, or a [`Cache::clear`], was running.
     Deferred(Error),
 }
 
@@ -143,7 +140,7 @@ pub struct Prune {
     pub capacity_removed: u64,
     /// Temporary files left by writers that died mid-write.
     pub temporary_removed: u64,
-    /// Lock files left by processes that died holding a key lock.
+    /// Lock files that no process held, such as those of a process that died.
     pub locks_removed: u64,
 }
 
@@ -154,6 +151,13 @@ pub struct Usage {
     pub entries: u64,
     /// Their total size.
     pub bytes: u64,
+}
+
+impl Usage {
+    fn remove(&mut self, bytes: u64) {
+        self.entries = self.entries.saturating_sub(1);
+        self.bytes = self.bytes.saturating_sub(bytes);
+    }
 }
 
 struct Inner {
@@ -259,31 +263,21 @@ impl Cache {
     /// Hold it across "look up, fetch upstream, store" so concurrent callers
     /// for the same key fetch once.
     ///
-    /// It first retries a skipped prune (see [`Maintenance::Deferred`]), which
-    /// reads every entry before this returns.
-    ///
     /// # Errors
     ///
     /// [`Error::Lock`] when a lock cannot be taken, [`Error::UnsafeRoot`] when
     /// a lock file is not private, and [`Error::Io`] when one cannot be opened.
     pub fn lock(&self, key: &Key) -> Result<KeyLock, Error> {
         private::validate_root(&self.inner.root)?;
-        retry_pending_prune(&self.inner);
         private::ensure_dir(&self.inner.root.join(LOCKS))?;
         let maintenance = private::open_lock(&self.inner.root.join(MAINTENANCE))?;
         maintenance.lock_shared().map_err(|_| Error::Lock)?;
-        let path = self
-            .inner
-            .root
-            .join(LOCKS)
-            .join(format!("{}.lock", key.digest()));
-        let key_file = private::lock_exclusive(&path)?;
+        let held = private::lock_exclusive(&lock_path(&self.inner, key.digest()))?;
         Ok(KeyLock {
             inner: Arc::clone(&self.inner),
             key: key.clone(),
-            path,
+            _key: held,
             _maintenance: maintenance,
-            _key: key_file,
         })
     }
 
@@ -300,9 +294,9 @@ impl Cache {
     /// of processes that died. When the cache was over a hard cap, it then
     /// removes the oldest entries until both targets hold.
     ///
-    /// It reads every entry under the maintenance lock, so [`Cache::lock`]
-    /// callers wait for it. It waits for every key lock, so a thread holding
-    /// a [`KeyLock`] must drop it first.
+    /// It removes a file only under its key's lock, taken without waiting, and
+    /// skips a key someone holds; so it never blocks [`Cache::lock`] and may
+    /// run while this thread holds a [`KeyLock`]. One prune runs at a time.
     ///
     /// # Errors
     ///
@@ -312,8 +306,8 @@ impl Cache {
         prune(&self.inner, Wait::Block)
     }
 
-    /// Removes every entry, lock file, and pending-prune marker. Like
-    /// [`Cache::prune`], it waits for every key lock.
+    /// Removes every entry and lock file. It waits for every key lock, so a
+    /// thread holding a [`KeyLock`] must drop it first.
     ///
     /// # Errors
     ///
@@ -334,8 +328,7 @@ impl Cache {
         for item in fs::read_dir(&locks).map_err(|error| Error::io(&error))? {
             private::remove(&item.map_err(|error| Error::io(&error))?.path())?;
         }
-        private::sync_dir(&locks)?;
-        private::remove(&self.inner.root.join(PRUNE_PENDING))
+        private::sync_dir(&locks)
     }
 }
 
@@ -345,17 +338,8 @@ impl Cache {
 pub struct KeyLock {
     inner: Arc<Inner>,
     key: Key,
-    path: PathBuf,
+    _key: private::Held,
     _maintenance: File,
-    _key: File,
-}
-
-impl Drop for KeyLock {
-    /// Deletes the lock file before the lock is released, so a lock file
-    /// exists only while its key is held.
-    fn drop(&mut self) {
-        let _ = fs::remove_file(&self.path);
-    }
 }
 
 impl fmt::Debug for KeyLock {
@@ -385,8 +369,8 @@ impl KeyLock {
     ///
     /// Store only a successful, normalized response: there is no negative
     /// caching. A reader sees the previous entry or this one, never a partial
-    /// file. A write over a hard cap prunes before returning, without waiting
-    /// for key locks (see [`Maintenance::Deferred`]).
+    /// file. A write over a hard cap prunes before returning (see
+    /// [`Cache::prune`]).
     ///
     /// # Errors
     ///
@@ -421,12 +405,7 @@ impl KeyLock {
             {
                 match prune(&inner, Wait::Skip) {
                     Ok(prune) => Maintenance::Pruned(prune),
-                    Err(error) => {
-                        if error == Error::Lock {
-                            let _ = private::open_lock(&inner.root.join(PRUNE_PENDING));
-                        }
-                        Maintenance::Deferred(error)
-                    }
+                    Err(error) => Maintenance::Deferred(error),
                 }
             }
             Ok(_) => Maintenance::NotNeeded,
@@ -547,89 +526,113 @@ enum Wait {
     Skip,
 }
 
-/// Clears the pending marker before the scan, so a prune skipped meanwhile
-/// leaves a fresh one.
+/// Holds the maintenance lock shared, so only [`Cache::clear`] excludes it,
+/// and `prune.lock`, so one prune runs at a time. Each file goes only under
+/// its key's lock, taken without waiting; a held key is skipped. A writer
+/// holds its key's lock while its temporary file exists.
 fn prune(inner: &Inner, wait: Wait) -> Result<Prune, Error> {
     private::validate_root(&inner.root)?;
     let maintenance = private::open_lock(&inner.root.join(MAINTENANCE))?;
+    let pruning = private::open_lock(&inner.root.join(PRUNE_LOCK))?;
     match wait {
-        Wait::Block => maintenance.lock().map_err(|_| Error::Lock)?,
-        Wait::Skip => maintenance.try_lock().map_err(|error| match error {
-            TryLockError::WouldBlock => Error::Lock,
-            TryLockError::Error(error) => Error::io(&error),
-        })?,
+        Wait::Block => {
+            maintenance.lock_shared().map_err(|_| Error::Lock)?;
+            pruning.lock().map_err(|_| Error::Lock)?;
+        }
+        Wait::Skip => {
+            maintenance.try_lock_shared().map_err(lock_error)?;
+            pruning.try_lock().map_err(lock_error)?;
+        }
     }
-    let _ = private::remove(&inner.root.join(PRUNE_PENDING));
     let entries = inner.root.join(ENTRIES);
     private::ensure_dir(&entries)?;
-    let before = usage(inner)?;
-    let now = inner.clock.now_ms();
     let mut outcome = Prune {
-        before_entries: before.entries,
-        before_bytes: before.bytes,
+        locks_removed: remove_unheld_locks(inner)?,
         ..Prune::default()
     };
+    let before = usage(inner)?;
+    outcome.before_entries = before.entries;
+    outcome.before_bytes = before.bytes;
+    let mut left = before;
+    let now = inner.clock.now_ms();
     let mut kept = Vec::new();
     for item in fs::read_dir(&entries).map_err(|error| Error::io(&error))? {
         let path = item.map_err(|error| Error::io(&error))?.path();
         if is_temporary(&path) {
-            private::remove(&path)?;
-            outcome.temporary_removed += 1;
+            let held = temporary_digest(&path)
+                .map(|digest| try_key(inner, digest))
+                .transpose()?;
+            if !matches!(held, Some(None)) {
+                private::remove(&path)?;
+                outcome.temporary_removed += 1;
+            }
             continue;
         }
-        if entry_digest(&path).is_none() {
+        let Some(digest) = entry_digest(&path) else {
             continue;
-        }
+        };
+        let Some(_held) = try_key(inner, digest)? else {
+            continue;
+        };
         let Some(metadata) = private::regular(&path)? else {
             continue;
         };
         if let Some(stored_at_ms) = live_stored_at(&path, now) {
-            kept.push((stored_at_ms, path, metadata.len()));
+            kept.push((stored_at_ms, digest.to_owned(), metadata.len()));
         } else {
             private::remove(&path)?;
             outcome.expired_removed += 1;
+            left.remove(metadata.len());
         }
     }
-    let mut entries_left = u64::try_from(kept.len()).unwrap_or(u64::MAX);
-    let mut bytes_left = kept
-        .iter()
-        .fold(0_u64, |total, (_, _, size)| total.saturating_add(*size));
     if before.entries > inner.limits.hard_entries || before.bytes > inner.limits.hard_bytes {
         kept.sort();
         let target_entries = inner.limits.target_entries.min(inner.limits.hard_entries);
         let target_bytes = inner.limits.target_bytes.min(inner.limits.hard_bytes);
-        for (_, path, size) in kept {
-            if entries_left <= target_entries && bytes_left <= target_bytes {
+        for (stored_at_ms, digest, size) in kept {
+            if left.entries <= target_entries && left.bytes <= target_bytes {
                 break;
             }
+            let Some(_held) = try_key(inner, &digest)? else {
+                continue;
+            };
+            let path = entry_path(inner, &digest);
+            if live_stored_at(&path, now) != Some(stored_at_ms) {
+                continue;
+            }
             private::remove(&path)?;
-            entries_left -= 1;
-            bytes_left = bytes_left.saturating_sub(size);
             outcome.capacity_removed += 1;
+            left.remove(size);
         }
     }
     private::sync_dir(&entries)?;
-    outcome.locks_removed = remove_stale_locks(inner)?;
-    outcome.after_entries = entries_left;
-    outcome.after_bytes = bytes_left;
+    outcome.after_entries = left.entries;
+    outcome.after_bytes = left.bytes;
     Ok(outcome)
 }
 
-fn retry_pending_prune(inner: &Inner) {
-    if fs::symlink_metadata(inner.root.join(PRUNE_PENDING)).is_ok() {
-        let _ = prune(inner, Wait::Skip);
+fn lock_error(error: TryLockError) -> Error {
+    match error {
+        TryLockError::WouldBlock => Error::Lock,
+        TryLockError::Error(error) => Error::io(&error),
     }
 }
 
-/// Under the exclusive maintenance lock no key lock is held, so every lock
-/// file left belongs to a process that died.
-fn remove_stale_locks(inner: &Inner) -> Result<u64, Error> {
+fn try_key(inner: &Inner, digest: &str) -> Result<Option<private::Held>, Error> {
+    private::try_lock_exclusive(&lock_path(inner, digest))
+}
+
+/// A lock file nobody holds belongs to a process that died, or to a waiter
+/// about to retry on the path's new file.
+fn remove_unheld_locks(inner: &Inner) -> Result<u64, Error> {
     let locks = inner.root.join(LOCKS);
     private::ensure_dir(&locks)?;
     let mut removed = 0;
     for item in fs::read_dir(&locks).map_err(|error| Error::io(&error))? {
-        private::remove(&item.map_err(|error| Error::io(&error))?.path())?;
-        removed += 1;
+        let path = item.map_err(|error| Error::io(&error))?.path();
+        if private::regular(&path)?.is_some() && private::try_lock_exclusive(&path)?.is_some() {
+            removed += 1;
+        }
     }
     private::sync_dir(&locks)?;
     Ok(removed)
@@ -673,11 +676,22 @@ fn entry_path(inner: &Inner, digest: &str) -> PathBuf {
     inner.root.join(ENTRIES).join(format!("{digest}.json"))
 }
 
+fn lock_path(inner: &Inner, digest: &str) -> PathBuf {
+    inner.root.join(LOCKS).join(format!("{digest}.lock"))
+}
+
 fn entry_digest(path: &Path) -> Option<&str> {
     path.file_name()?
         .to_str()?
         .strip_suffix(".json")
         .filter(|digest| digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_hexdigit()))
+}
+
+/// A temporary file is named `.<digest>.<random>.tmp` by its writer.
+fn temporary_digest(path: &Path) -> Option<&str> {
+    let name = path.file_name()?.to_str()?;
+    let digest = name.strip_prefix('.')?.split('.').next()?;
+    (digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_hexdigit())).then_some(digest)
 }
 
 fn is_temporary(path: &Path) -> bool {

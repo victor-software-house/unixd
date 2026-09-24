@@ -1,10 +1,10 @@
 //! Private directories, private lock files, and reads that never follow a
 //! symlink. Every function refuses what another user owns.
 
-use std::fs::{self, File, Metadata, Permissions};
+use std::fs::{self, File, Metadata, Permissions, TryLockError};
 use std::io::{self, Read as _};
 use std::os::unix::fs::{MetadataExt as _, PermissionsExt as _};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use rustix::fs::{Mode, OFlags};
 
@@ -67,22 +67,55 @@ pub(crate) fn open_lock(path: &Path) -> Result<File, Error> {
     Ok(file)
 }
 
-/// Locks the file at `path` exclusively. A holder deletes its file before
-/// unlocking, so a waiter can end up holding a deleted file; it then retries
-/// until `path` names the file it holds.
-pub(crate) fn lock_exclusive(path: &Path) -> Result<File, Error> {
+/// An exclusive lock on a lock file. Dropping it deletes the file before the
+/// lock is released, so a lock file exists only while it is held.
+pub(crate) struct Held {
+    path: PathBuf,
+    _file: File,
+}
+
+impl Drop for Held {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
+    }
+}
+
+/// Locks the file at `path` exclusively. Because a holder deletes its file
+/// before unlocking, a waiter can end up holding a deleted file; it then
+/// retries until `path` names the file it holds.
+pub(crate) fn lock_exclusive(path: &Path) -> Result<Held, Error> {
     loop {
         let file = open_lock(path)?;
         file.lock().map_err(|_| Error::Lock)?;
-        let held = file.metadata().map_err(|error| Error::io(&error))?;
-        match fs::symlink_metadata(path) {
-            Ok(named) if named.dev() == held.dev() && named.ino() == held.ino() => {
-                return Ok(file);
-            }
-            Ok(_) => {}
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-            Err(error) => return Err(Error::io(&error)),
+        if names(path, &file)? {
+            return Ok(Held {
+                path: path.to_owned(),
+                _file: file,
+            });
         }
+    }
+}
+
+/// [`lock_exclusive`] without waiting: `None` while another caller holds it.
+pub(crate) fn try_lock_exclusive(path: &Path) -> Result<Option<Held>, Error> {
+    let file = open_lock(path)?;
+    match file.try_lock() {
+        Ok(()) => {}
+        Err(TryLockError::WouldBlock) => return Ok(None),
+        Err(TryLockError::Error(error)) => return Err(Error::io(&error)),
+    }
+    Ok(names(path, &file)?.then(|| Held {
+        path: path.to_owned(),
+        _file: file,
+    }))
+}
+
+fn names(path: &Path, file: &File) -> Result<bool, Error> {
+    let held = file.metadata().map_err(|error| Error::io(&error))?;
+    match fs::symlink_metadata(path) {
+        Ok(named) => Ok(named.dev() == held.dev() && named.ino() == held.ino()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(Error::io(&error)),
     }
 }
 
