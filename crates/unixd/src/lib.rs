@@ -11,6 +11,9 @@
 //! checks that the peer runs as its own user before it reads, and a
 //! [`Handler`] owns the payloads and the error codes. [`Client`] is blocking,
 //! so a CLI needs no async runtime to call a daemon.
+//!
+//! [`SingleFlight`] lets a handler run one upstream call for concurrent
+//! identical requests.
 
 mod client;
 mod envelope;
@@ -18,6 +21,7 @@ mod install;
 mod limits;
 mod serve;
 mod server;
+mod single_flight;
 mod sys;
 
 pub use client::{Client, ClientError};
@@ -26,3 +30,4 @@ pub use install::{InstallError, Service, install, uninstall};
 pub use limits::Limits;
 pub use serve::{Lifecycle, Shutdown, serve, serve_listener};
 pub use server::{Failure, Handler, serve_connection};
+pub use single_flight::{FlightError, SingleFlight};

@@ -17,7 +17,7 @@ workspace = true
 default = []
 
 [dependencies]
-futures-util = { version = "0.3.34", default-features = false }
+futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
 humantime-serde = "1.1.1"
 rustix = { version = "1.1.5", features = ["net", "process"] }
 serde = { version = "1.0.229", features = ["derive"] }
@@ -33,6 +33,7 @@ nix = { version = "0.31.3", default-features = false, features = ["socket", "use
 plist = "1.10.1"
 
 [dev-dependencies]
+unixd-cache = { version = "0.0.0", path = "../unixd-cache" }
 serde_json = "1.0.151"
 tempfile = "3.27.0"
 tokio = { version = "1.53.1", features = ["rt-multi-thread"] }
