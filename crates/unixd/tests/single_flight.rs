@@ -14,8 +14,8 @@ fn work(
     runs: &Arc<AtomicUsize>,
     millis: u64,
     result: Result<u32, &'static str>,
-) -> impl FnOnce() -> std::pin::Pin<Box<dyn Future<Output = Result<u32, &'static str>> + Send>>
-+ use<> {
+) -> impl FnOnce() -> std::pin::Pin<Box<dyn Future<Output = Result<u32, &'static str>> + Send>> + use<>
+{
     let runs = Arc::clone(runs);
     move || {
         Box::pin(async move {
@@ -88,6 +88,9 @@ async fn a_dropped_leader_does_not_cancel_the_work() {
     };
     tokio::time::sleep(Duration::from_millis(50)).await;
     leader.abort();
-    assert_eq!(flights.run("key", work(&runs, 200, Ok(0))).await.unwrap(), 9);
+    assert_eq!(
+        flights.run("key", work(&runs, 200, Ok(0))).await.unwrap(),
+        9
+    );
     assert_eq!(runs.load(Ordering::SeqCst), 1);
 }

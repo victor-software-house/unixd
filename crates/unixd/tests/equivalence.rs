@@ -51,14 +51,20 @@ fn open(root: &Path) -> Cache {
 /// The consumer's code shared by both paths: the cache first, then a fixed
 /// upstream that answers with the query reversed.
 fn answer(cache: &Cache, query: &str) -> String {
-    let key = Key::builder("reverse").part("query", query).unwrap().build();
+    let key = Key::builder("reverse")
+        .part("query", query)
+        .unwrap()
+        .build();
     let lock = cache.lock(&key).unwrap();
     if let Lookup::Fresh(cached) = lock.lookup::<String>().unwrap() {
         return cached.value;
     }
     let value: String = query.chars().rev().collect();
-    lock.store(&value, Policy::new(Duration::from_secs(60), Duration::from_secs(3600)))
-        .unwrap();
+    lock.store(
+        &value,
+        Policy::new(Duration::from_secs(60), Duration::from_secs(3600)),
+    )
+    .unwrap();
     value
 }
 
@@ -119,11 +125,10 @@ async fn the_daemon_and_the_direct_path_agree() {
             serve_connection(stream, &*daemon, V1, Limits::default()).await;
         }
     });
-    let through_daemon: String = tokio::task::spawn_blocking(move || {
-        Client::new(&socket, V1).call(&"unixd").unwrap()
-    })
-    .await
-    .unwrap();
+    let through_daemon: String =
+        tokio::task::spawn_blocking(move || Client::new(&socket, V1).call(&"unixd").unwrap())
+            .await
+            .unwrap();
     let direct = answer(&open(&direct_cache), "unixd");
 
     assert_eq!(through_daemon, direct);

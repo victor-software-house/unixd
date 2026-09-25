@@ -14,8 +14,8 @@ result and leave the same cache.
 1. `unixd` provides `SingleFlight<K, T, E>`: concurrent calls with the same key
    share one run of the work, and every caller gets the value or the shared
    error.
-2. The work runs as a task on the daemon's `TaskTracker`, so a caller that
-   disconnects does not cancel it, and drain waits for it.
+2. The work runs as its own task, so a caller that disconnects does not
+   cancel it for the others.
 3. The direct path calls the work without coalescing. Across processes, the
    `unixd-cache` key lock already makes a second caller wait and then read the
    stored entry.
