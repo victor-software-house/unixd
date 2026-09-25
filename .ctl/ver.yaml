@@ -9,3 +9,7 @@ packages:
     path: crates/unixd-cache/Cargo.toml
   - name: unixd
     path: crates/unixd/Cargo.toml
+
+# The crates version separately, so each gets its own tag and Release.
+tags:
+  template: "{name}-v{version}"
