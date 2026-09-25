@@ -71,8 +71,9 @@ retryable flag, and the transport SHALL NOT map codes to its own error type.
 ### Requirement: The client has one deadline
 
 The blocking client SHALL apply one deadline to connect, write, and read, SHALL
-accept only a listener whose uid is its own or root, and SHALL reject a reply
-whose request id differs from the request.
+accept only a listener whose uid is its own, or root on macOS, where launchd
+creates every agent's socket, and SHALL reject a reply whose request id
+differs from the request.
 
 #### Scenario: No daemon
 

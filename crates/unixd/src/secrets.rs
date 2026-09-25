@@ -46,7 +46,9 @@ pub struct SecretStore<S: Zeroize> {
 }
 
 struct Held<S: Zeroize> {
-    secret: SecretBox<S>,
+    /// Shared so [`SecretStore::get`] can read it with the map unlocked; the
+    /// value is zeroed when the last reader lets go.
+    secret: Arc<SecretBox<S>>,
     stored: Instant,
     read: Instant,
     idle: Duration,
@@ -69,7 +71,7 @@ impl<S: Zeroize> fmt::Debug for SecretStore<S> {
     }
 }
 
-impl<S: Zeroize + Send + 'static> SecretStore<S> {
+impl<S: Zeroize + Send + Sync + 'static> SecretStore<S> {
     /// Hardens the process and starts a store that sweeps expired secrets
     /// every [`SecretLimits::sweep_every`] until it is dropped.
     ///
@@ -116,7 +118,7 @@ impl<S: Zeroize> SecretStore<S> {
         self.lock().insert(
             key.into(),
             Held {
-                secret,
+                secret: Arc::new(secret),
                 stored: now,
                 read: now,
                 idle,
@@ -127,7 +129,8 @@ impl<S: Zeroize> SecretStore<S> {
 
     /// Runs `read` on the secret under `key` and returns its result, or
     /// `None` when there is none or it expired. A read restarts the idle
-    /// lifetime.
+    /// lifetime. The store is unlocked while `read` runs, so it may use the
+    /// store.
     pub fn get<R>(&self, key: &str, read: impl FnOnce(&S) -> R) -> Option<R> {
         let now = Instant::now();
         let mut secrets = self.lock();
@@ -137,7 +140,9 @@ impl<S: Zeroize> SecretStore<S> {
         }
         let held = secrets.get_mut(key)?;
         held.read = now;
-        Some(read(held.secret.expose_secret()))
+        let secret = Arc::clone(&held.secret);
+        drop(secrets);
+        Some(read(secret.expose_secret()))
     }
 
     /// Removes and zeroes the secret under `key`.
