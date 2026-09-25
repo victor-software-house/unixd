@@ -262,6 +262,28 @@ mod platform {
             .is_ok_and(|output| output.status.success())
     }
 
+    /// Unloads the job and waits up to 5 seconds for launchd to finish,
+    /// since `bootout` returns before the job is gone and a `bootstrap` in
+    /// that window fails.
+    fn bootout(service: &Service) -> Result<(), InstallError> {
+        if !loaded(service) {
+            return Ok(());
+        }
+        run(Command::new("launchctl")
+            .arg("bootout")
+            .arg(format!("{}/{}", domain(), service.label())))?;
+        for _ in 0..50 {
+            if !loaded(service) {
+                return Ok(());
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+        Err(InstallError::Command {
+            command: format!("launchctl bootout {}/{}", domain(), service.label()),
+            stderr: "the job was still loaded after 5 seconds".to_owned(),
+        })
+    }
+
     pub(super) fn install(
         service: &Service,
         socket: &Path,
@@ -297,11 +319,7 @@ mod platform {
         }
         plist::to_file_xml(&plist, &agent)
             .map_err(|error| InstallError::Io(std::io::Error::other(error.to_string())))?;
-        if loaded(service) {
-            run(Command::new("launchctl")
-                .arg("bootout")
-                .arg(format!("{}/{label}", domain())))?;
-        }
+        bootout(service)?;
         run(Command::new("launchctl")
             .arg("bootstrap")
             .arg(domain())
@@ -327,13 +345,7 @@ mod platform {
     }
 
     pub(super) fn uninstall(service: &Service) -> Result<(), InstallError> {
-        if loaded(service) {
-            run(Command::new("launchctl").arg("bootout").arg(format!(
-                "{}/{}",
-                domain(),
-                service.label()
-            )))?;
-        }
+        bootout(service)?;
         remove_if_present(&plist_path(service)?)?;
         remove_if_present(&service.socket_path()?)?;
         Ok(())
