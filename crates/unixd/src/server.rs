@@ -202,7 +202,7 @@ mod tests {
         let other = sys::own_uid().wrapping_add(1);
         serve_as(server, &recorder, V1, Limits::default(), other).await;
         let mut reply = Vec::new();
-        client.read_to_end(&mut reply).await.unwrap();
+        let _ = client.read_to_end(&mut reply).await;
         assert_eq!(reply, b"");
         assert!(!recorder.0.load(Ordering::SeqCst));
     }

@@ -73,9 +73,11 @@ async fn call(client: Client, body: &str) -> Result<String, ClientError> {
         .unwrap()
 }
 
+/// Linux resets a connection that its server closes with input unread, so a
+/// read error ends the reply as end of file does.
 fn read_all(mut stream: StdStream) -> Vec<u8> {
     let mut bytes = Vec::new();
-    stream.read_to_end(&mut bytes).unwrap();
+    let _ = stream.read_to_end(&mut bytes);
     bytes
 }
 
