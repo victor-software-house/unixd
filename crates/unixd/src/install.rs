@@ -295,9 +295,8 @@ mod platform {
         if let Some(dir) = plist.parent() {
             std::fs::create_dir_all(dir)?;
         }
-        plist::to_file_xml(&plist, &agent).map_err(|error| {
-            InstallError::Io(std::io::Error::other(error.to_string()))
-        })?;
+        plist::to_file_xml(&plist, &agent)
+            .map_err(|error| InstallError::Io(std::io::Error::other(error.to_string())))?;
         if loaded(service) {
             run(Command::new("launchctl")
                 .arg("bootout")
@@ -329,9 +328,11 @@ mod platform {
 
     pub(super) fn uninstall(service: &Service) -> Result<(), InstallError> {
         if loaded(service) {
-            run(Command::new("launchctl")
-                .arg("bootout")
-                .arg(format!("{}/{}", domain(), service.label())))?;
+            run(Command::new("launchctl").arg("bootout").arg(format!(
+                "{}/{}",
+                domain(),
+                service.label()
+            )))?;
         }
         remove_if_present(&plist_path(service)?)?;
         remove_if_present(&service.socket_path()?)?;

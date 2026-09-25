@@ -73,7 +73,8 @@ pub async fn serve<H: Handler + 'static>(
     shutdown: Shutdown,
 ) -> io::Result<()> {
     std::env::set_current_dir("/")?;
-    let listener = std::os::unix::net::UnixListener::from(io::stdin().as_fd().try_clone_to_owned()?);
+    let listener =
+        std::os::unix::net::UnixListener::from(io::stdin().as_fd().try_clone_to_owned()?);
     listener.set_nonblocking(true)?;
     serve_listener(
         UnixListener::from_std(listener)?,

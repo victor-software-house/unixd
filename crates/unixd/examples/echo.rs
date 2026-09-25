@@ -4,10 +4,9 @@
 //! default.
 
 use std::convert::Infallible;
-use std::fmt;
-use std::io;
 use std::sync::Arc;
 use std::time::Duration;
+use std::{fmt, io};
 
 use serde::Serialize;
 use unixd::{Failure, Handler, Lifecycle, Limits, Shutdown, Version, serve};
