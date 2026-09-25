@@ -60,13 +60,14 @@ The server SHALL close a connection that sends no complete frame within
 
 ### Requirement: The caller owns error codes
 
-The handler SHALL return a caller error type that supplies an error code and a
-retryable flag, and the transport SHALL NOT map codes to its own error type.
+The handler SHALL return a caller error type that supplies an error code, a
+retryable flag, and optional structured details, and the transport SHALL NOT
+map codes to its own error type.
 
 #### Scenario: Handler error
 
 - **WHEN** the handler returns an error with code `not_found` and retryable false
-- **THEN** the client receives an error envelope with code `not_found` and retryable false
+- **THEN** the client receives an error envelope with code `not_found`, retryable false, and the handler's details
 
 ### Requirement: The client has one deadline
 
