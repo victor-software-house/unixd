@@ -1,19 +1,20 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/victor-software-house/qctl/main/schema/tasks.schema.json
 schema_version: 4
 prefix: UXD
-active: UXD-006
-queue:
+active: null
+queue: []
+archive:
   - id: UXD-006
     title: Move the first consumer onto unixd
     scope: adoption
     outcome: The first consumer uses unixd and unixd-cache in place of its own daemon, transport, and cache, and its self-spawn code is deleted.
-    blocked_by:
-      []
-    acceptance:
-      - The consumer's own suite passes on the published crates, and it contains no start lock or self-spawn code.
     links:
       - https://github.com/victor-software-house/unixd/blob/main/docs/design/daemon-and-cache.md
-archive:
+    completed: 2026-09-25T12:53:07
+    evidence:
+      - The first consumer merged its adoption on 2026-09-25. It runs on unixd 0.0.3 and unixd-cache 0.0.1 from crates.io and no longer has a self-spawn manager, start lock, PID file, or socket bind and unlink code; its full suite passed on macOS and Linux.
+    disposition: completed
+
   - id: UXD-007
     title: Add an in-memory secret store to the daemon
     scope: unixd
