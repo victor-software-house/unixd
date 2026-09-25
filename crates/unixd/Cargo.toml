@@ -1,6 +1,6 @@
 [package]
 name = "unixd"
-version = "0.0.0"
+version = "0.0.1"
 description = "Per-user daemon runtime: socket activation, peer identity, bounded framing, drain lifecycle"
 keywords = ["daemon", "launchd", "unix-socket", "activation", "tokio"]
 categories = ["asynchronous", "os::unix-apis"]
