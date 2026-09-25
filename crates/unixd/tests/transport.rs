@@ -190,6 +190,30 @@ fn a_reply_to_another_request_is_invalid() {
 }
 
 #[test]
+fn a_reply_over_the_cap_is_refused_in_one_pass() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("d.sock");
+    let listener = StdListener::bind(&path).unwrap();
+    let cap = Limits::default().max_frame_bytes;
+    let server = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let mut request = Vec::new();
+        stream.read_to_end(&mut request).unwrap();
+        let _ = stream.write_all(&vec![b'x'; cap + 1]);
+    });
+    let started = Instant::now();
+    let result = Client::new(&path, V1)
+        .with_deadline(Duration::from_secs(30))
+        .call::<_, String>(&"hello");
+    assert!(
+        matches!(result, Err(ClientError::FrameTooLarge)),
+        "{result:?}"
+    );
+    assert!(started.elapsed() < Duration::from_secs(3));
+    server.join().unwrap();
+}
+
+#[test]
 fn limits_read_from_a_config_with_defaults_for_the_rest() {
     let limits: Limits = serde_json::from_str(r#"{"read_timeout": "2s"}"#).unwrap();
     assert_eq!(limits.read_timeout, Duration::from_secs(2));
