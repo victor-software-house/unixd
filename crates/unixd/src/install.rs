@@ -269,9 +269,11 @@ mod platform {
         if !loaded(service) {
             return Ok(());
         }
-        run(Command::new("launchctl")
-            .arg("bootout")
-            .arg(format!("{}/{}", domain(), service.label())))?;
+        run(Command::new("launchctl").arg("bootout").arg(format!(
+            "{}/{}",
+            domain(),
+            service.label()
+        )))?;
         for _ in 0..50 {
             if !loaded(service) {
                 return Ok(());
