@@ -89,6 +89,8 @@ where
     }
 
     /// Joins the flight for `key`, or starts one with `work` when none runs.
+    /// `work` is called with the map locked, so it only builds the future and
+    /// must not call this `SingleFlight`.
     ///
     /// # Errors
     ///
@@ -111,6 +113,9 @@ where
         flight.await
     }
 
+    /// The task starts on the flight's first poll, after [`SingleFlight::run`]
+    /// has released the map, so no drop of `Landed` can find the map locked
+    /// by its own thread.
     fn start<F>(&self, key: K, work: F) -> Flight<T, E>
     where
         F: Future<Output = Result<T, E>> + Send + 'static,
@@ -119,11 +124,11 @@ where
             flights: Arc::clone(&self.flights),
             key: Some(key),
         };
-        let task = tokio::spawn(async move {
-            let _landed = landed;
-            work.await
-        });
         async move {
+            let task = tokio::spawn(async move {
+                let _landed = landed;
+                work.await
+            });
             match task.await {
                 Ok(Ok(value)) => Ok(value),
                 Ok(Err(error)) => Err(FlightError::Failed(Arc::new(error))),
