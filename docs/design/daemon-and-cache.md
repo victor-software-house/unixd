@@ -336,7 +336,7 @@ crate is published.
    client, proven by shared golden fixtures, or generated from one source. Start
    with fixtures; revisit only when drift is measured rather than predicted.
 
-[example]: ../../crates/unixd/examples/activation.rs
+[example]: https://github.com/victor-software-house/unixd/blob/bec5987b72fd91f812f0bcf33b1c88256418586c/crates/unixd/examples/activation.rs
 [file-lock]: https://doc.rust-lang.org/std/fs/struct.File.html#method.lock
 [http-cache-semantics]: https://crates.io/crates/http-cache-semantics
 [launchd-plist]: https://keith.github.io/xcode-man-pages/launchd.plist.5.html

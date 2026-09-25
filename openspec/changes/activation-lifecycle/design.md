@@ -9,7 +9,7 @@ The evidence is in the [activation research][activation] and the
 |--:|:--|:--|:--|
 | 1 | Take the listener from stdin on both platforms. | `launch_activate_socket` on macOS and [`listenfd`][listenfd] on Linux. | The macOS call needs `unsafe` to adopt a raw descriptor, and the stdin path passed its live proof on both platforms. |
 | 2 | Change the working directory to `/` before taking the listener. | Rely on activation alone. | A guard that costs one call makes the stranded-directory failure impossible even if a caller runs the serve entry by hand. |
-| 3 | Socket at `$XDG_RUNTIME_DIR/<name>/<name>-v<major>.sock` on Linux, written as `%t/…` in the unit. On macOS, `~/Library/Application Support/<name>/<name>-v<major>.sock`, written as an absolute path. | `$TMPDIR` on macOS. | The macOS temporary directory is cleaned by the system, and launchd does not expand variables in `SockPathName`. |
+| 3 | Socket at `$XDG_RUNTIME_DIR/<name>/<name>-v<major>.sock` on Linux and `~/Library/Application Support/<name>/<name>-v<major>.sock` on macOS, written as absolute paths, so the client and the unit compute the same path. | `$TMPDIR` on macOS. | The macOS temporary directory is cleaned by the system, and launchd does not expand variables in `SockPathName`. |
 | 4 | Refuse to install when the socket path exceeds 103 bytes on macOS or 107 on Linux. | A hashed fallback path, as fnox has. | The installer chooses the path, so it can report the limit instead of hiding it. |
 | 5 | Write the plist with the [`plist`][plist] crate. | A text template. | Paths and labels need XML escaping, which the crate does. |
 | 6 | Set `StartLimitIntervalSec=10` and `StartLimitBurst=100` on the service, and `TriggerLimitIntervalSec=2` and `TriggerLimitBurst=200` on the socket. On macOS set `ThrottleInterval` to 1. | The defaults. | The defaults refused 6 of 25 connections in the measured run. |
@@ -17,6 +17,7 @@ The evidence is in the [activation research][activation] and the
 | 8 | The idle timer runs only while no connection is open, and restarts after the last one closes. | A timer from the last accept. | A long request would otherwise be cut by the idle exit. |
 | 9 | Default idle timeout of 10 minutes; `0` disables it. | The consumer's 4 hours. | The restart limits in decision 6 make short timeouts safe, and a daemon holding memory for hours with no clients has no benefit. |
 | 10 | Install and uninstall are idempotent and touch only files named by this label. | Remove any matching unit. | The installer must never remove another program's unit. |
+| 11 | On macOS, `install` returns once the socket belongs to the user, waiting up to 5 s. | Return after `launchctl bootstrap`. | launchd binds the socket as root and changes the owner afterwards; a client that connected right after a reinstall got `EACCES`. |
 
 ## Overrides and disable paths
 

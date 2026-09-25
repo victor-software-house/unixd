@@ -1,5 +1,7 @@
 //! The serve loop in process: signals, the shutdown request, the idle timer,
-//! and the drain bound.
+//! and the drain bound. The signal test sends `SIGTERM` to its own process,
+//! which drains every daemon in it, so these tests need a process each, as
+//! nextest runs them, or `--test-threads=1`.
 
 #![expect(
     clippy::unwrap_used,
