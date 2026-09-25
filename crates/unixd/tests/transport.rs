@@ -34,6 +34,9 @@ impl Failure for Missing {
     fn retryable(&self) -> bool {
         false
     }
+    fn details(&self) -> Option<serde_json::Value> {
+        Some(serde_json::json!({ "status": 404 }))
+    }
 }
 
 /// Echoes its request, except `missing`, which fails.
@@ -99,6 +102,7 @@ async fn a_handler_error_reaches_the_client_with_its_code() {
     assert_eq!(fault.code, "not_found");
     assert!(!fault.retryable);
     assert_eq!(fault.message, "no such thing");
+    assert_eq!(fault.details, Some(serde_json::json!({ "status": 404 })));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -109,6 +113,10 @@ async fn another_major_version_is_refused() {
         panic!("expected a remote error");
     };
     assert_eq!(fault.code, "unsupported_version");
+    assert_eq!(
+        fault.details,
+        Some(serde_json::json!({ "requested_major": 2, "supported_major": 1 }))
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]

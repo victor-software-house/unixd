@@ -19,6 +19,10 @@ pub trait Failure: Display {
     fn code(&self) -> &str;
     /// Whether the same request may succeed later.
     fn retryable(&self) -> bool;
+    /// Structured context for [`Fault::details`]. None by default.
+    fn details(&self) -> Option<Value> {
+        None
+    }
 }
 
 /// Answers one decoded request. The daemon's own types define the payloads
@@ -101,6 +105,10 @@ async fn respond<H: Handler>(
                 version.major, sent.major
             ),
             retryable: false,
+            details: Some(serde_json::json!({
+                "requested_major": sent.major,
+                "supported_major": version.major,
+            })),
         });
     }
     let Ok(request) = serde_json::from_value(body) else {
@@ -108,6 +116,7 @@ async fn respond<H: Handler>(
             code: "invalid_request".to_owned(),
             message: "the request body is not one this server answers".to_owned(),
             retryable: false,
+            details: None,
         });
     };
     match handler.handle(request).await {
@@ -116,6 +125,7 @@ async fn respond<H: Handler>(
             code: error.code().to_owned(),
             message: error.to_string(),
             retryable: error.retryable(),
+            details: error.details(),
         }),
     }
 }
