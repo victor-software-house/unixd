@@ -13,12 +13,14 @@
 //! so a CLI needs no async runtime to call a daemon.
 //!
 //! [`SingleFlight`] lets a handler run one upstream call for concurrent
-//! identical requests.
+//! identical requests, and [`SecretStore`] holds secrets in the daemon's
+//! memory with idle and maximum lifetimes.
 
 mod client;
 mod envelope;
 mod install;
 mod limits;
+mod secrets;
 mod serve;
 mod server;
 mod single_flight;
@@ -28,6 +30,8 @@ pub use client::{Client, ClientError};
 pub use envelope::{Fault, Outcome, Request, Response, Version};
 pub use install::{InstallError, Service, install, uninstall};
 pub use limits::Limits;
+pub use secrecy::{SecretBox, zeroize::Zeroize};
+pub use secrets::{SecretLimits, SecretStore};
 pub use serve::{Lifecycle, Shutdown, serve, serve_listener};
 pub use server::{Failure, Handler, serve_connection};
 pub use single_flight::{FlightError, SingleFlight};

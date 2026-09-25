@@ -20,6 +20,7 @@ default = []
 futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
 humantime-serde = "1.1.1"
 rustix = { version = "1.1.5", features = ["net", "process"] }
+secrecy = "0.10.3"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 tokio = { version = "1.53.1", features = ["io-util", "macros", "net", "rt", "signal", "sync", "time"] }
@@ -36,4 +37,4 @@ plist = "1.10.1"
 unixd-cache = { version = "0.0.0", path = "../unixd-cache" }
 serde_json = "1.0.151"
 tempfile = "3.27.0"
-tokio = { version = "1.53.1", features = ["rt-multi-thread"] }
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "test-util"] }
