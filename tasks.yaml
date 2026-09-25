@@ -1,19 +1,8 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/victor-software-house/qctl/main/schema/tasks.schema.json
 schema_version: 4
 prefix: UXD
-active: UXD-002
+active: UXD-003
 queue:
-  - id: UXD-002
-    title: Extract the consumer cache into unixd-cache
-    scope: unixd-cache
-    outcome: unixd-cache stores any serializable value under caller-built keys with fresh and stale horizons, per-key locks, atomic writes, and bounded prune, with no async runtime.
-    blocked_by:
-      []
-    acceptance:
-      - Verification steps 2, 5, 6, and 8 in the design doc pass.
-    links:
-      - https://github.com/victor-software-house/unixd/blob/main/docs/design/daemon-and-cache.md
-
   - id: UXD-003
     title: Extract framing, envelopes, the peer check, and the client into unixd
     scope: unixd
@@ -41,7 +30,6 @@ queue:
     scope: unixd
     outcome: The daemon coalesces concurrent identical requests in process, the direct path relies on the key lock, and both paths give the same output and cache state.
     blocked_by:
-      - UXD-002
       - UXD-004
     acceptance:
       - Verification step 9 in the design doc passes.
@@ -71,6 +59,17 @@ queue:
     links:
       - https://github.com/victor-software-house/unixd/blob/main/openspec/changes/secret-store/proposal.md
 archive:
+  - id: UXD-002
+    title: Extract the consumer cache into unixd-cache
+    scope: unixd-cache
+    outcome: unixd-cache stores any serializable value under caller-built keys with fresh and stale horizons, per-key locks, atomic writes, and bounded prune, with no async runtime.
+    links:
+      - https://github.com/victor-software-house/unixd/blob/main/docs/design/daemon-and-cache.md
+    completed: 2026-09-25T00:19:34
+    evidence:
+      - 'Merged in unixd PR 4 (bec5987): 34 tests pass under mise run verify on macOS and in CI on Linux.'
+    disposition: completed
+
   - id: UXD-001
     title: Prove native socket activation on macOS and Linux
     scope: activation
