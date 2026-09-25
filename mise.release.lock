@@ -15,15 +15,15 @@ url = "https://github.com/victor-software-house/qctl/releases/download/v0.4.4/qc
 url_api = "https://api.github.com/repos/victor-software-house/qctl/releases/assets/584953069"
 
 [[tools."github:victor-software-house/verctl"]]
-version = "0.3.3"
+version = "0.3.4"
 backend = "github:victor-software-house/verctl"
 
 [tools."github:victor-software-house/verctl"."platforms.linux-x64"]
-checksum = "sha256:813f012581582ebe1f543a45475b13647ac70e7c6d7dc840a59f5e4adbf8c22d"
-url = "https://github.com/victor-software-house/verctl/releases/download/v0.3.3/verctl_0.3.3_linux_x64.tar.gz"
-url_api = "https://api.github.com/repos/victor-software-house/verctl/releases/assets/584959810"
+checksum = "sha256:e2b18dc423365831e02c98ec078803bf6ec2de8bc003c730754d4211b3adf288"
+url = "https://github.com/victor-software-house/verctl/releases/download/v0.3.4/verctl_0.3.4_linux_x64.tar.gz"
+url_api = "https://api.github.com/repos/victor-software-house/verctl/releases/assets/587260948"
 
 [tools."github:victor-software-house/verctl"."platforms.macos-arm64"]
-checksum = "sha256:59d1ea602967d57975a53c2d13e82d2dbf683d65e860760149b207b9e1c2161c"
-url = "https://github.com/victor-software-house/verctl/releases/download/v0.3.3/verctl_0.3.3_macos_arm64.tar.gz"
-url_api = "https://api.github.com/repos/victor-software-house/verctl/releases/assets/584961025"
+checksum = "sha256:e1d0fa7d21c04ff6e184f6bb79983ba38d96ee4b328e2eae8b7c3021e1343fe7"
+url = "https://github.com/victor-software-house/verctl/releases/download/v0.3.4/verctl_0.3.4_macos_arm64.tar.gz"
+url_api = "https://api.github.com/repos/victor-software-house/verctl/releases/assets/587264967"
