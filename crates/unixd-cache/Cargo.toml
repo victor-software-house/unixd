@@ -1,6 +1,6 @@
 [package]
 name = "unixd-cache"
-version = "0.0.0"
+version = "0.0.1"
 description = "Bounded on-disk response cache: freshness horizons, stale-if-error, cross-process locks, atomic writes"
 keywords = ["cache", "disk-cache", "stale-if-error", "file-lock"]
 categories = ["caching", "filesystem"]
