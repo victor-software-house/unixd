@@ -13,7 +13,7 @@ The evidence for each decision is in the [transport research][research].
 | 5 | The caller's error type implements a trait that gives a code string and a retryable flag. | A fixed error table in `unixd`. | A fixed table ties the crate to one program, which is the gap this slice closes. |
 | 6 | A blocking `std` client. | An async client on Tokio. | A CLI sends one request per run; an async client would force a runtime on it. |
 | 7 | A read deadline and a write deadline per connection. | None, as the consumer has. | A silent client otherwise holds a handler until drain. |
-| 8 | The client also checks the server's uid. | Trust the socket path. | The consumer does it, and it costs one call. |
+| 8 | The client checks that the listener's uid is its own or root. | Trust the socket path. | The consumer does it, and it costs one call. On macOS the client sees the uid of whoever called `listen`, which is launchd as root. |
 
 ## Overrides and disable paths
 

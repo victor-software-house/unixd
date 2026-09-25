@@ -68,7 +68,8 @@ impl Client {
             return Err(ClientError::FrameTooLarge);
         }
         let stream = sys::connect(&self.socket, left(deadline)?).map_err(connect_error)?;
-        if sys::peer_uid(&stream).map_err(io_error)? != sys::own_uid() {
+        let peer = sys::peer_uid(&stream).map_err(io_error)?;
+        if peer != sys::own_uid() && peer != 0 {
             return Err(ClientError::PeerMismatch);
         }
         stream
@@ -100,7 +101,10 @@ pub enum ClientError {
     Unavailable,
     /// The deadline passed.
     Timeout,
-    /// The daemon runs as another user.
+    /// The socket belongs to another user. The client sees the credentials of
+    /// whoever listens on the socket: the daemon's user under systemd, and
+    /// root under launchd, which creates the socket itself. Root can read the
+    /// user's files anyway, so both pass.
     PeerMismatch,
     /// The request or the response is larger than the frame cap.
     FrameTooLarge,
