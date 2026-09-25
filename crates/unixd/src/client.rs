@@ -165,7 +165,8 @@ fn write_frame(stream: &UnixStream, deadline: Instant, frame: &[u8]) -> Result<(
 }
 
 /// Reads until the first newline. Each read waits only for the time left, so
-/// a daemon that trickles bytes cannot stretch the deadline.
+/// a daemon that trickles bytes cannot stretch the deadline, and only the new
+/// bytes are searched, so a reply near the cap costs one pass.
 fn read_frame(stream: &UnixStream, deadline: Instant, max: usize) -> Result<Vec<u8>, ClientError> {
     let mut reader = stream;
     let mut frame = Vec::new();
@@ -185,8 +186,10 @@ fn read_frame(stream: &UnixStream, deadline: Instant, max: usize) -> Result<Vec<
                 ClientError::InvalidFrame
             });
         }
+        let start = frame.len();
         frame.extend_from_slice(&chunk[..read]);
-        if let Some(newline) = frame.iter().position(|byte| *byte == b'\n') {
+        if let Some(offset) = chunk[..read].iter().position(|byte| *byte == b'\n') {
+            let newline = start + offset;
             if newline >= max {
                 return Err(ClientError::FrameTooLarge);
             }
