@@ -55,4 +55,8 @@ pub struct Fault {
     pub message: String,
     /// Whether the same request may succeed later.
     pub retryable: bool,
+    /// Structured context the client may match on, such as an upstream
+    /// status. The handler decides what goes here.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub details: Option<serde_json::Value>,
 }
