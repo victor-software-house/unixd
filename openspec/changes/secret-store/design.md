@@ -8,8 +8,7 @@ secrets. This change adds the smallest store that matches them.
 
 ## Goals
 
-1. A secret never reaches disk: no file, no swap where `mlock` succeeds, and no
-   core dump.
+1. A secret never reaches a file or a core dump.
 2. A secret leaves memory at its TTL, at `remove` or `clear`, or at daemon
    exit, and its bytes are zeroed.
 3. Only the daemon's own user can ask for it.
@@ -36,13 +35,15 @@ secrets. This change adds the smallest store that matches them.
 4. **Expiry on access and on a timer.** A `get` checks both TTLs first. The
    daemon's idle loop sweeps expired secrets once a minute. A sweep on access
    alone lost: an unused secret would stay in memory until daemon exit.
-5. **Hardening at daemon start.** `RLIMIT_CORE` 0 on both platforms,
-   `PR_SET_DUMPABLE` 0 on Linux, `PT_DENY_ATTACH` on macOS, as ssh-agent does.
-   It runs only when the daemon registers a store, so a daemon without secrets
-   keeps normal crash dumps. Override: none; a store without it breaks goal 1.
-6. **Best-effort `mlock`.** The store locks its pages and logs one warning on
-   failure, as rbw does. A hard failure lost: Linux defaults
-   `RLIMIT_MEMLOCK` to 8 MiB, and some containers set 0.
+5. **Hardening when a store is created.** `RLIMIT_CORE` 0 on both
+   platforms and `PR_SET_DUMPABLE` 0 on Linux, through `rustix`. A daemon
+   without a store keeps normal crash dumps. Override: none; a store without
+   it breaks goal 1.
+6. **No `mlock` and no `PT_DENY_ATTACH`.** Both need `unsafe` through
+   `rustix` or `libc`, and the workspace forbids `unsafe`. macOS encrypts
+   swap, so a swapped page does not reach disk in clear. On Linux a swapped
+   secret can reach an unencrypted swap device; `PR_SET_DUMPABLE` still keeps
+   other processes of the user out of the daemon's memory.
 7. **Limits from the consumer's config.** `SecretLimits` derives `Deserialize`
    with `#[serde(default, deny_unknown_fields)]` and humantime durations, the
    same shape as the cache's `Limits`.
@@ -54,14 +55,12 @@ secrets. This change adds the smallest store that matches them.
 | 1 | Idle TTL | `SecretLimits.idle`, per-`put` `ttl` | `None` |
 | 2 | Maximum age | `SecretLimits.max_age`, per-`put` `ttl` | `None` |
 | 3 | Sweep interval | `SecretLimits.sweep_every` | none; expiry on access still applies |
-| 4 | `mlock` | none | fails soft by design |
 
 ## Risks
 
 1. A copy made by the consumer outside `SecretBox` is not zeroed. The API
    hands out `&SecretBox` only, and the docs say so.
-2. `mlock` can fail silently on a system with swap and a low limit. The
-   warning names the limit.
+2. On Linux with unencrypted swap, a secret can be written to swap.
 
 [lifecycle]: ../activation-lifecycle/design.md
 [research]: ../../../docs/research/cache-maintenance.md#3-secrets-in-memory

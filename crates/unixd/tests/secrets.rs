@@ -60,7 +60,10 @@ async fn removed_and_swept_secrets_are_zeroed() {
     let store = SecretStore::new(SecretLimits::default()).unwrap();
     let removed = Arc::new(AtomicBool::new(false));
     let swept = Arc::new(AtomicBool::new(false));
-    store.put("removed", SecretBox::new(Box::new(Probe(Arc::clone(&removed)))));
+    store.put(
+        "removed",
+        SecretBox::new(Box::new(Probe(Arc::clone(&removed)))),
+    );
     store.put("swept", SecretBox::new(Box::new(Probe(Arc::clone(&swept)))));
     store.remove("removed");
     assert!(removed.load(Ordering::SeqCst));

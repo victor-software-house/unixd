@@ -19,10 +19,10 @@ maximum. None writes a secret to disk.
    (2 hours), both configurable per store and per `put`.
 3. Values are [`secrecy`][secrecy] `SecretBox`, zeroed on drop and redacted in
    `Debug`.
-4. At daemon start, the runtime turns off core dumps, marks the process not
-   dumpable on Linux, denies debugger attach on macOS, and locks the store's
-   pages in memory where the limit allows.
-5. The direct path has no store. A `get` there is always a miss.
+4. Creating a store turns core dumps off, and on Linux marks the process not
+   dumpable, which also keeps a debugger of the same user out.
+5. The direct path has no store; the consumer asks the daemon for a secret
+   or goes to the secret's source.
 
 ## Capabilities
 
@@ -38,8 +38,7 @@ None.
 
 1. New dependency in `unixd`: [`secrecy`][secrecy] 0.10.3, which brings
    [`zeroize`][zeroize].
-2. `rustix` gains the `process` and `mm` features for `setrlimit`, `prctl`,
-   and `mlock`. `PT_DENY_ATTACH` goes through `rustix` on macOS.
+2. `rustix` already has the `process` feature for `setrlimit` and `prctl`.
 3. `unixd-cache` does not change.
 
 [disk-cache]: ../disk-cache/proposal.md

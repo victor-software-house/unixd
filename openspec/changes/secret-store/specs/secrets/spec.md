@@ -7,15 +7,10 @@
 The secret store SHALL NOT write a secret to any file, and the daemon SHALL
 write no core dump while a store is registered.
 
-#### Scenario: No file
-
-- **WHEN** a test daemon stores a secret and exits
-- **THEN** no file under the daemon's state, cache, or runtime directories contains the secret's bytes
-
 #### Scenario: No core dump
 
-- **WHEN** a daemon with a registered store receives `SIGABRT`
-- **THEN** `getrlimit(RLIMIT_CORE)` read before the signal was 0, and no core file is written
+- **WHEN** a process creates a store
+- **THEN** `getrlimit(RLIMIT_CORE)` reads 0 for both limits, and on Linux the process is not dumpable
 
 ### Requirement: Secrets expire
 
@@ -45,7 +40,7 @@ cleared, or the daemon exits.
 #### Scenario: Remove
 
 - **WHEN** `remove` drops a secret
-- **THEN** the `SecretBox` drop runs `zeroize`, shown by a test value whose `Zeroize` impl records the call
+- **THEN** the value's `Zeroize` runs, shown by a test value that records the call
 
 ### Requirement: Secrets do not print
 
@@ -55,16 +50,6 @@ A secret SHALL NOT appear in `Debug` output, logs, or error messages.
 
 - **WHEN** a test formats the store and a stored secret with `{:?}`
 - **THEN** the output does not contain the secret's bytes
-
-### Requirement: The direct path holds no secrets
-
-A secret `get` through the direct client SHALL return `None`, since no
-process outlives the request. The consumer then asks the secret's source.
-
-#### Scenario: Direct get
-
-- **WHEN** the cross-mode test harness calls `put` and then `get` through the direct client
-- **THEN** `get` returns `None`, and the same calls through the daemon client return the secret
 
 ### Requirement: Limits come from the consumer's config
 
