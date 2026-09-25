@@ -39,6 +39,6 @@ jobs:
         with:
           version: 2026.9.13
           cache: true
-      - uses: victor-software-house/verctl/actions/publish@eeb2a4404a63bd907089471ea13e660a276d081e # v0.3.4
+      - uses: victor-software-house/verctl/actions/publish@cbad16c8ca0f610a6a98e30bf3b88e0e0ec5e2f8 # v0.3.5
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
