@@ -143,7 +143,8 @@ impl error::Error for ClientError {
     }
 }
 
-/// Writes the frame. Each write waits only for the time left, as reads do.
+/// Writes the frame. Each write waits only for the time left, as reads do,
+/// and a write a signal interrupted is tried again.
 fn write_frame(stream: &UnixStream, deadline: Instant, frame: &[u8]) -> Result<(), ClientError> {
     let mut writer = stream;
     let mut rest = frame;
@@ -151,7 +152,10 @@ fn write_frame(stream: &UnixStream, deadline: Instant, frame: &[u8]) -> Result<(
         stream
             .set_write_timeout(Some(left(deadline)?))
             .map_err(io_error)?;
-        let written = writer.write(rest).map_err(io_error)?;
+        let written = match writer.write(rest) {
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+            written => written.map_err(io_error)?,
+        };
         if written == 0 {
             return Err(ClientError::Closed);
         }
@@ -170,7 +174,10 @@ fn read_frame(stream: &UnixStream, deadline: Instant, max: usize) -> Result<Vec<
         stream
             .set_read_timeout(Some(left(deadline)?))
             .map_err(io_error)?;
-        let read = reader.read(&mut chunk).map_err(io_error)?;
+        let read = match reader.read(&mut chunk) {
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+            read => read.map_err(io_error)?,
+        };
         if read == 0 {
             return Err(if frame.is_empty() {
                 ClientError::Closed
