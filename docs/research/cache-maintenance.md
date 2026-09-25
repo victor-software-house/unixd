@@ -79,7 +79,7 @@ since Linux defaults `RLIMIT_MEMLOCK` to 8 MiB.
 [deleted]: https://keith.github.io/xcode-man-pages/deleted.8.html
 [design]: ../design/daemon-and-cache.md
 [dirhelper]: https://github.com/st3fan/osx-10.9/blob/34e34a6a539b5a822cda4074e56a7ced9b57da71/system_cmds-597.1.1/dirhelper.tproj/dirhelper.c#L195-L260
-[disk-cache]: ../../openspec/changes/disk-cache/design.md
+[disk-cache]: ../../openspec/changes/archive/2026-09-24-disk-cache/design.md
 [fd-lock]: https://github.com/yoshuawuyts/fd-lock/tree/af18798c1790003815a8180fb1929c0a7da1f512
 [fnox-daemon]: https://github.com/jdx/fnox/blob/ba1a0889ac674f985608a75bfc5969e521ba4027/docs/guide/daemon.md
 [forum-707643]: https://developer.apple.com/forums/thread/707643
@@ -97,7 +97,7 @@ since Linux defaults `RLIMIT_MEMLOCK` to 8 MiB.
 [rustix]: https://crates.io/crates/rustix
 [sccache]: https://github.com/mozilla/sccache/blob/8396f0209d74d496b7cb27cdf323cd3ff8d4a291/docs/Local.md
 [secrecy]: https://github.com/iqlusioninc/crates/tree/70eaa76ea3f4bacd67f3027c4a52948485a67d32/secrecy
-[secret-store]: ../../openspec/changes/secret-store/proposal.md
+[secret-store]: ../../openspec/changes/archive/2026-09-24-secret-store/proposal.md
 [ssh-agent]: https://github.com/openssh/openssh-portable/blob/ccc26c76cd47ca224ff5e4ef8b96007b65ff0b4e/ssh-agent.c#L192-L193
 [ssh-tracing]: https://github.com/openssh/openssh-portable/blob/ccc26c76cd47ca224ff5e4ef8b96007b65ff0b4e/platform-tracing.c#L59-L74
 [tmpfiles]: https://github.com/systemd/systemd/blob/7abf4dbbf4662ca29b7525b7f3ddf0105dd1362a/man/tmpfiles.d.xml

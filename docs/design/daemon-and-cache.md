@@ -136,7 +136,9 @@ Every accepted connection is checked for the same effective UID as the serving
 process, with [`tokio::net::UnixStream::peer_cred()`][tokio-ucred], before any frame is read.
 It uses `getpeereid` on macOS and `SO_PEERCRED` on Linux. A mismatch closes the
 connection without a reply and without a log entry containing the peer's
-identity.
+identity. The client checks the listener the same way, and also accepts root
+on macOS, because launchd creates every agent's socket as root; there the
+`0700` directory around the socket keeps other users out.
 
 ### Framing
 
@@ -344,11 +346,11 @@ crate is published.
 [maintenance]: ../research/cache-maintenance.md
 [measurements]: ../research/activation-and-cache.md#4-live-activation-measurements
 [research]: ../research/
-[secret-store]: ../../openspec/changes/secret-store/proposal.md
+[secret-store]: ../../openspec/changes/archive/2026-09-24-secret-store/proposal.md
 [service-manager]: https://crates.io/crates/service-manager
 [systemd-exec]: https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html
 [systemd-socket]: https://www.freedesktop.org/software/systemd/man/latest/systemd.socket.html
 [tempfile]: https://crates.io/crates/tempfile
 [tokio]: https://tokio.rs
 [tokio-ucred]: https://docs.rs/tokio/latest/tokio/net/struct.UnixStream.html#method.peer_cred
-[coalescing]: ../../openspec/changes/coalescing/design.md
+[coalescing]: ../../openspec/changes/archive/2026-09-24-coalescing/design.md

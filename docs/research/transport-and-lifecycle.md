@@ -160,7 +160,7 @@ stdin. No Apple statement deprecates or removes it. [TN2083][tn2083] and
 [asf-leader]: https://github.com/PureWhiteWu/async_singleflight/blob/4b2c2768f13bbf4f41ec251d58c9ebebd02dca90/src/group.rs#L165-L186
 [async-singleflight]: https://crates.io/crates/async_singleflight
 [cancel-token]: https://github.com/tokio-rs/tokio/blob/f2189d3bd69d22638158a0ca8163b2e8daf18c5f/tokio-util/src/sync/cancellation_token.rs#L204-L300
-[coalescing-change]: ../../openspec/changes/coalescing/proposal.md
+[coalescing-change]: ../../openspec/changes/archive/2026-09-24-coalescing/proposal.md
 [design]: ../design/daemon-and-cache.md
 [fnox-read-line]: https://github.com/jdx/fnox/blob/efaa682d140e7ef1d9383e9116dfe57757d2d659/src/daemon.rs#L824-L832
 [fnox-wire]: https://github.com/jdx/fnox/blob/efaa682d140e7ef1d9383e9116dfe57757d2d659/src/daemon.rs#L1306-L1349
@@ -172,7 +172,7 @@ stdin. No Apple statement deprecates or removes it. [TN2083][tn2083] and
 [jsonrpsee]: https://crates.io/crates/jsonrpsee
 [launchd-plist]: https://keith.github.io/xcode-man-pages/launchd.plist.5.html
 [length-limit]: https://github.com/tokio-rs/tokio/blob/f2189d3bd69d22638158a0ca8163b2e8daf18c5f/tokio-util/src/codec/length_delimited.rs#L520-L526
-[lifecycle-change]: ../../openspec/changes/activation-lifecycle/proposal.md
+[lifecycle-change]: ../../openspec/changes/archive/2026-09-24-activation-lifecycle/proposal.md
 [lines-decode]: https://github.com/tokio-rs/tokio/blob/f2189d3bd69d22638158a0ca8163b2e8daf18c5f/tokio-util/src/codec/lines_codec.rs#L112-L164
 [moka-guard]: https://github.com/moka-rs/moka/blob/a616ec19e8d4ed938caf8b2c88090331d778d5da/src/future/value_initializer.rs#L186-L213
 [nix-darwin-406]: https://github.com/nix-darwin/nix-darwin/issues/406
@@ -199,7 +199,7 @@ stdin. No Apple statement deprecates or removes it. [TN2083][tn2083] and
 [tokio-graceful]: https://github.com/plabayo/tokio-graceful/blob/2be9b6541d140386ca670f521b5a9870c4e9a167/src/shutdown.rs#L436
 [tokio-peer-cred]: https://github.com/tokio-rs/tokio/blob/75fef53d0a8590c2d1dbb63672aa7b7d1ef51155/tokio/src/net/unix/ucred.rs#L81-L144
 [tokio-ucred-macos]: https://github.com/tokio-rs/tokio/blob/75fef53d0a8590c2d1dbb63672aa7b7d1ef51155/tokio/src/net/unix/ucred.rs#L287-L338
-[transport-change]: ../../openspec/changes/transport/proposal.md
+[transport-change]: ../../openspec/changes/archive/2026-09-24-transport/proposal.md
 [tokio-util]: https://github.com/tokio-rs/tokio/tree/f2189d3bd69d22638158a0ca8163b2e8daf18c5f/tokio-util
 [unix7]: https://man7.org/linux/man-pages/man7/unix.7.html
 [xdg]: https://specifications.freedesktop.org/basedir/latest/
