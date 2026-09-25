@@ -13,6 +13,12 @@ pub(crate) fn own_uid() -> u32 {
     rustix::process::geteuid().as_raw()
 }
 
+/// Whether a client may talk to a socket whose listener runs as `uid`. launchd
+/// listens as root for every agent, so macOS also accepts root.
+pub(crate) fn trusted_listener(uid: u32) -> bool {
+    uid == own_uid() || (cfg!(target_os = "macos") && uid == 0)
+}
+
 #[cfg(target_os = "linux")]
 pub(crate) fn peer_uid(socket: impl AsFd) -> io::Result<u32> {
     Ok(sockopt::socket_peercred(socket)?.uid.as_raw())

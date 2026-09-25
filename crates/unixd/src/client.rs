@@ -68,14 +68,10 @@ impl Client {
             return Err(ClientError::FrameTooLarge);
         }
         let stream = sys::connect(&self.socket, left(deadline)?).map_err(connect_error)?;
-        let peer = sys::peer_uid(&stream).map_err(io_error)?;
-        if peer != sys::own_uid() && peer != 0 {
+        if !sys::trusted_listener(sys::peer_uid(&stream).map_err(io_error)?) {
             return Err(ClientError::PeerMismatch);
         }
-        stream
-            .set_write_timeout(Some(left(deadline)?))
-            .map_err(io_error)?;
-        (&stream).write_all(&frame).map_err(io_error)?;
+        write_frame(&stream, deadline, &frame)?;
         stream.shutdown(Shutdown::Write).map_err(io_error)?;
         let line = read_frame(&stream, deadline, self.limits.max_frame_bytes)?;
         let response: Response<R> =
@@ -103,8 +99,9 @@ pub enum ClientError {
     Timeout,
     /// The socket belongs to another user. The client sees the credentials of
     /// whoever listens on the socket: the daemon's user under systemd, and
-    /// root under launchd, which creates the socket itself. Root can read the
-    /// user's files anyway, so both pass.
+    /// root under launchd, which creates every agent's socket itself. On
+    /// macOS the `0700` directory around the socket is what keeps other
+    /// users out.
     PeerMismatch,
     /// The request or the response is larger than the frame cap.
     FrameTooLarge,
@@ -144,6 +141,23 @@ impl error::Error for ClientError {
             _ => None,
         }
     }
+}
+
+/// Writes the frame. Each write waits only for the time left, as reads do.
+fn write_frame(stream: &UnixStream, deadline: Instant, frame: &[u8]) -> Result<(), ClientError> {
+    let mut writer = stream;
+    let mut rest = frame;
+    while !rest.is_empty() {
+        stream
+            .set_write_timeout(Some(left(deadline)?))
+            .map_err(io_error)?;
+        let written = writer.write(rest).map_err(io_error)?;
+        if written == 0 {
+            return Err(ClientError::Closed);
+        }
+        rest = &rest[written..];
+    }
+    Ok(())
 }
 
 /// Reads until the first newline. Each read waits only for the time left, so
