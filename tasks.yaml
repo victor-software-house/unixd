@@ -1,76 +1,74 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/victor-software-house/qctl/main/schema/tasks.schema.json
 schema_version: 4
 prefix: UXD
-active: UXD-002
+active: UXD-006
 queue:
-  - id: UXD-002
-    title: Extract the consumer cache into unixd-cache
-    scope: unixd-cache
-    outcome: unixd-cache stores any serializable value under caller-built keys with fresh and stale horizons, per-key locks, atomic writes, and bounded prune, with no async runtime.
-    blocked_by:
-      []
-    acceptance:
-      - Verification steps 2, 5, 6, and 8 in the design doc pass.
-    links:
-      - https://github.com/victor-software-house/unixd/blob/main/docs/design/daemon-and-cache.md
-
-  - id: UXD-003
-    title: Extract framing, envelopes, the peer check, and the client into unixd
-    scope: unixd
-    outcome: unixd carries versioned newline-delimited JSON frames with a size cap over a handler trait, and closes a connection from another user before reading.
-    blocked_by:
-      []
-    acceptance:
-      - Verification steps 3 and 4 in the design doc pass.
-    links:
-      - https://github.com/victor-software-house/unixd/blob/main/docs/design/daemon-and-cache.md
-
-  - id: UXD-004
-    title: Add the stdin listener, unit install, drain, and idle exit
-    scope: unixd
-    outcome: unixd installs and removes its own launchd and systemd units, takes its socket on stdin, drains on every stop path, and exits idle without unlinking the socket.
-    blocked_by:
-      - UXD-003
-    acceptance:
-      - Verification steps 7 and 10 in the design doc pass on macOS and Linux.
-    links:
-      - https://github.com/victor-software-house/unixd/blob/main/docs/design/daemon-and-cache.md
-
-  - id: UXD-005
-    title: Add daemon coalescing and the cross-mode equivalence test
-    scope: unixd
-    outcome: The daemon coalesces concurrent identical requests in process, the direct path relies on the key lock, and both paths give the same output and cache state.
-    blocked_by:
-      - UXD-002
-      - UXD-004
-    acceptance:
-      - Verification step 9 in the design doc passes.
-    links:
-      - https://github.com/victor-software-house/unixd/blob/main/docs/design/daemon-and-cache.md
-
   - id: UXD-006
     title: Move the first consumer onto unixd
     scope: adoption
     outcome: The first consumer uses unixd and unixd-cache in place of its own daemon, transport, and cache, and its self-spawn code is deleted.
     blocked_by:
-      - UXD-005
+      []
     acceptance:
       - The consumer's own suite passes on the published crates, and it contains no start lock or self-spawn code.
     links:
       - https://github.com/victor-software-house/unixd/blob/main/docs/design/daemon-and-cache.md
-
+archive:
   - id: UXD-007
     title: Add an in-memory secret store to the daemon
     scope: unixd
     outcome: A daemon can hold secrets in memory with idle and maximum TTLs, zeroed on drop, never written to disk, and gone when it exits.
-    blocked_by:
-      - UXD-004
-    acceptance:
-      - The secret-store OpenSpec change tasks pass under mise run verify on macOS and Linux.
-      - A process running as another user cannot read a stored secret, and the daemon writes no core dump.
     links:
-      - https://github.com/victor-software-house/unixd/blob/main/openspec/changes/secret-store/proposal.md
-archive:
+      - https://github.com/victor-software-house/unixd/blob/main/openspec/changes/archive/2026-09-24-secret-store/proposal.md
+    completed: 2026-09-25T00:52:21
+    evidence:
+      - Implemented in the unixd stack PRs 7, 9, 10, and 11; mise run verify on macOS and the full suite plus the install tests on Linux passed on 2026-09-25.
+    disposition: completed
+
+  - id: UXD-005
+    title: Add daemon coalescing and the cross-mode equivalence test
+    scope: unixd
+    outcome: The daemon coalesces concurrent identical requests in process, the direct path relies on the key lock, and both paths give the same output and cache state.
+    links:
+      - https://github.com/victor-software-house/unixd/blob/main/docs/design/daemon-and-cache.md
+    completed: 2026-09-25T00:52:21
+    evidence:
+      - Implemented in the unixd stack PRs 7, 9, 10, and 11; mise run verify on macOS and the full suite plus the install tests on Linux passed on 2026-09-25.
+    disposition: completed
+
+  - id: UXD-004
+    title: Add the stdin listener, unit install, drain, and idle exit
+    scope: unixd
+    outcome: unixd installs and removes its own launchd and systemd units, takes its socket on stdin, drains on every stop path, and exits idle without unlinking the socket.
+    links:
+      - https://github.com/victor-software-house/unixd/blob/main/docs/design/daemon-and-cache.md
+    completed: 2026-09-25T00:52:21
+    evidence:
+      - Implemented in the unixd stack PRs 7, 9, 10, and 11; mise run verify on macOS and the full suite plus the install tests on Linux passed on 2026-09-25.
+    disposition: completed
+
+  - id: UXD-003
+    title: Extract framing, envelopes, the peer check, and the client into unixd
+    scope: unixd
+    outcome: unixd carries versioned newline-delimited JSON frames with a size cap over a handler trait, and closes a connection from another user before reading.
+    links:
+      - https://github.com/victor-software-house/unixd/blob/main/docs/design/daemon-and-cache.md
+    completed: 2026-09-25T00:52:21
+    evidence:
+      - Implemented in the unixd stack PRs 7, 9, 10, and 11; mise run verify on macOS and the full suite plus the install tests on Linux passed on 2026-09-25.
+    disposition: completed
+
+  - id: UXD-002
+    title: Extract the consumer cache into unixd-cache
+    scope: unixd-cache
+    outcome: unixd-cache stores any serializable value under caller-built keys with fresh and stale horizons, per-key locks, atomic writes, and bounded prune, with no async runtime.
+    links:
+      - https://github.com/victor-software-house/unixd/blob/main/docs/design/daemon-and-cache.md
+    completed: 2026-09-25T00:19:34
+    evidence:
+      - 'Merged in unixd PR 4 (bec5987): 34 tests pass under mise run verify on macOS and in CI on Linux.'
+    disposition: completed
+
   - id: UXD-001
     title: Prove native socket activation on macOS and Linux
     scope: activation

@@ -153,7 +153,7 @@ Framing, envelopes, drain, coalescing, and socket placement are in the
 [cacache]: https://github.com/zkat/cacache-rs/blob/66eae4b78f75eb2a38a2d25e838a56561294aebf/src/index.rs#L91
 [crates.io]: https://crates.io
 [design]: ../design/daemon-and-cache.md
-[example]: ../../crates/unixd/examples/activation.rs
+[example]: https://github.com/victor-software-house/unixd/blob/bec5987b72fd91f812f0bcf33b1c88256418586c/crates/unixd/examples/activation.rs
 [fnox]: https://github.com/jdx/fnox
 [fnox-793]: https://github.com/jdx/fnox/discussions/793
 [fnox-serve]: https://github.com/jdx/fnox/blob/ba1a0889ac674f985608a75bfc5969e521ba4027/src/daemon.rs#L586-L707

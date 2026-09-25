@@ -60,8 +60,8 @@ Socket activation has no start lock and no spawner, so neither case exists.
    has no HTTP adapter.
 
 [changes]: ../../openspec/changes
-[coalescing]: ../../openspec/changes/coalescing/proposal.md
+[coalescing]: ../../openspec/changes/archive/2026-09-24-coalescing/proposal.md
 [design]: ../design/daemon-and-cache.md
-[disk-cache]: ../../openspec/changes/disk-cache/proposal.md
-[lifecycle]: ../../openspec/changes/activation-lifecycle/proposal.md
-[transport]: ../../openspec/changes/transport/proposal.md
+[disk-cache]: ../../openspec/changes/archive/2026-09-24-disk-cache/proposal.md
+[lifecycle]: ../../openspec/changes/archive/2026-09-24-activation-lifecycle/proposal.md
+[transport]: ../../openspec/changes/archive/2026-09-24-transport/proposal.md
