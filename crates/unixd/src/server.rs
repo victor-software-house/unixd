@@ -134,7 +134,6 @@ mod tests {
     use std::fmt;
     use std::sync::atomic::{AtomicBool, Ordering};
 
-
     use super::*;
 
     const V1: Version = Version { major: 1, minor: 0 };
