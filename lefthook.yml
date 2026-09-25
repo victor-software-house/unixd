@@ -18,6 +18,8 @@ pre-push:
   skip:
     - run: test -n "$CI"
   commands:
+    lockfile:
+      run: mise install --locked
     committed:
       run: mise run commits
     verify:

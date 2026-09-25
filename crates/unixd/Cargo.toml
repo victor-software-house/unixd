@@ -4,12 +4,10 @@ version = "0.0.0"
 description = "Per-user daemon runtime: socket activation, peer identity, bounded framing, drain lifecycle"
 keywords = ["daemon", "launchd", "unix-socket", "activation", "tokio"]
 categories = ["asynchronous", "os::unix-apis"]
-readme = "README.md"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-homepage.workspace = true
 authors.workspace = true
 
 [lints]

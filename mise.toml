@@ -1,6 +1,9 @@
 [settings]
 lockfile = true
 
+[tool_config]
+locked = true
+
 [task_config]
 includes = [
   "git::https://github.com/victor-software-house/qctl.git//tasks/q?ref=v0.4.4",

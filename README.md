@@ -6,7 +6,7 @@ upstream.
 
 | Crate | Owns | Async runtime |
 |:--|:--|:--|
-| `unixd` | Activation, listener ownership, peer identity, bounded framing, drain lifecycle | Tokio |
+| `unixd` | Activation, listener ownership, peer identity, bounded framing, drain lifecycle | [Tokio][tokio] |
 | `unixd-cache` | Freshness horizons, stale-if-error policy, cross-process locks, atomic writes, bounds | None |
 
 They are separate crates because consumers need different halves. A local
@@ -17,17 +17,18 @@ Tokio onto the second consumer's direct path and a cache onto the first.
 
 ## Status
 
-Unimplemented. The repository carries the design and the scaffold; both
-crates are `0.0.0` with empty public surfaces. The code will be extracted
-from a working consumer daemon and cache, slice by slice. Read
+`unixd-cache` is implemented and unreleased (`0.0.0`). `unixd`, the daemon
+runtime, is still an empty scaffold. The rest of the code will be extracted
+from a working consumer daemon, slice by slice. Read
 [`docs/design/daemon-and-cache.md`](docs/design/daemon-and-cache.md) for the
-contract before adding code.
+contract, and [`docs/research/`](docs/research/) for the evidence behind it,
+before adding code.
 
 ## Scope
 
 macOS on Apple Silicon and Linux. The platform service manager owns the
-socket and starts the daemon on demand: launchd on macOS, `systemd --user` on
-Linux. The daemon never spawns itself.
+socket and starts the daemon on demand: [launchd][launchd] on macOS,
+[`systemd --user`][systemd] on Linux. The daemon never spawns itself.
 
 Not in scope: self-spawn, other platforms, an HTTP adapter, pub/sub, a
 mailbox, a durable message queue, or a heartbeat.
@@ -35,3 +36,7 @@ mailbox, a durable message queue, or a heartbeat.
 ## License
 
 MIT.
+
+[launchd]: https://keith.github.io/xcode-man-pages/launchd.plist.5.html
+[systemd]: https://www.freedesktop.org/software/systemd/man/latest/systemd.socket.html
+[tokio]: https://tokio.rs

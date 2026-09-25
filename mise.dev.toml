@@ -1,10 +1,14 @@
 # Loaded when MISE_ENV contains `dev` (local default via .miserc.toml).
 # Compile this checkout.
 
+# mr_boxington on the rust entry needs mise 2026.9.2 or newer.
+min_version = "2026.9.2"
+
 [tools]
 committed = "1.1.11"
 lefthook = "2.1.10"
-rust = { version = "nightly", components = "rustfmt,clippy" }
+rust = { version = "nightly", components = "rustfmt,clippy", mr_boxington = true }
+mr-boxington = "1.17.0"
 "github:nextest-rs/nextest" = "cargo-nextest-0.9.143"
 "github:EmbarkStudios/cargo-deny" = "0.20.2"
 "github:bnjbvr/cargo-machete" = "0.9.2"
@@ -16,6 +20,7 @@ run = "cargo fmt --all -- --check"
 [tasks.lint]
 description = "clippy -D warnings"
 run = "cargo clippy --all-targets --all-features -- -D warnings"
+env.CARGO_TARGET_DIR = "target/lint"
 
 [tasks.check]
 description = "Type-check every crate, alone and with all features"
@@ -23,6 +28,7 @@ run = [
   "cargo check --workspace --all-targets",
   "cargo check --workspace --all-targets --all-features",
 ]
+env.CARGO_TARGET_DIR = "target/check"
 
 [tasks."check:runtime-free"]
 description = "Prove unixd-cache pulls in no async runtime"
@@ -31,10 +37,12 @@ run = "! cargo tree -p unixd-cache --edges normal | grep -qw tokio"
 [tasks.test]
 description = "Parallel tests via nextest"
 run = "cargo nextest run --all-features --no-tests=warn"
+env.CARGO_TARGET_DIR = "target/test"
 
 [tasks."test:doc"]
 description = "Doc-tests (nextest does not run these)"
 run = "cargo test --doc --all-features"
+env.CARGO_TARGET_DIR = "target/doc-test"
 
 [tasks.deny]
 description = "License, ban, and source policy (offline)"
@@ -60,4 +68,6 @@ run = 'committed "${usage_commits}"'
 
 [tasks.verify]
 description = "Format, lint, feature sets, nextest, doc-tests, deny, unused crates"
+# mbx shares one store and compiler pool; separate target dirs keep Cargo's
+# directory lock from serializing the parallel tasks.
 depends = ["format", "lint", "check", "check:runtime-free", "test", "test:doc", "deny", "deps"]
