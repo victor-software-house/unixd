@@ -94,3 +94,14 @@ async fn a_dropped_leader_does_not_cancel_the_work() {
     );
     assert_eq!(runs.load(Ordering::SeqCst), 1);
 }
+
+#[tokio::test]
+async fn a_panicked_flight_is_forgotten() {
+    let flights = Flights::default();
+    let result = flights
+        .run("key", || async { panic!("work failed") })
+        .await;
+    assert!(matches!(result, Err(FlightError::Panicked)));
+    let runs = Arc::new(AtomicUsize::new(0));
+    assert_eq!(flights.run("key", work(&runs, 0, Ok(4))).await.unwrap(), 4);
+}

@@ -44,6 +44,24 @@ impl<E: fmt::Display> fmt::Display for FlightError<E> {
     }
 }
 
+/// Forgets the flight when its task ends, whether the work returned,
+/// panicked, or was cancelled, so no later call joins a dead flight.
+struct Landed<K: Eq + Hash, T, E> {
+    flights: Arc<Mutex<HashMap<K, Flight<T, E>>>>,
+    key: Option<K>,
+}
+
+impl<K: Eq + Hash, T, E> Drop for Landed<K, T, E> {
+    fn drop(&mut self) {
+        if let Some(key) = self.key.take() {
+            self.flights
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .remove(&key);
+        }
+    }
+}
+
 impl<K, T, E> Default for SingleFlight<K, T, E> {
     fn default() -> Self {
         Self {
@@ -97,14 +115,13 @@ where
     where
         F: Future<Output = Result<T, E>> + Send + 'static,
     {
-        let flights = Arc::clone(&self.flights);
+        let landed = Landed {
+            flights: Arc::clone(&self.flights),
+            key: Some(key),
+        };
         let task = tokio::spawn(async move {
-            let result = work.await;
-            flights
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-                .remove(&key);
-            result
+            let _landed = landed;
+            work.await
         });
         async move {
             match task.await {
