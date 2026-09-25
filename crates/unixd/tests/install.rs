@@ -38,39 +38,51 @@ fn pid(service: &Service) -> u64 {
     reply["pid"].as_u64().unwrap()
 }
 
-fn service(test: &str) -> Service {
-    Service::new(format!("unixd-{test}-{}", process::id()), V1)
+/// Uninstalls when the test ends, even by a panic, so a failed run leaves no
+/// unit behind.
+struct Installed(Service);
+
+impl Drop for Installed {
+    fn drop(&mut self) {
+        let _ = uninstall(&self.0);
+    }
+}
+
+fn service(test: &str) -> Installed {
+    Installed(Service::new(format!("unixd-{test}-{}", process::id()), V1))
 }
 
 #[test]
 #[ignore = "installs a real unit"]
 fn install_twice_serve_uninstall_and_install_again() {
-    let service = service("round");
-    install(&service, &echo(), &[]).unwrap();
-    install(&service, &echo(), &[]).unwrap();
-    pid(&service);
-    uninstall(&service).unwrap();
-    assert!(!service.socket_path().unwrap().exists());
-    install(&service, &echo(), &[]).unwrap();
-    pid(&service);
-    uninstall(&service).unwrap();
-    uninstall(&service).unwrap();
+    let installed = service("round");
+    let service = &installed.0;
+    install(service, &echo(), &[]).unwrap();
+    install(service, &echo(), &[]).unwrap();
+    pid(service);
+    uninstall(service).unwrap();
+    assert!(!service.socket_path().unwrap().parent().unwrap().exists());
+    install(service, &echo(), &[]).unwrap();
+    pid(service);
+    uninstall(service).unwrap();
+    uninstall(service).unwrap();
 }
 
 #[test]
 #[ignore = "installs a real unit"]
 fn the_socket_outlives_an_idle_exit_and_a_removed_client_directory() {
-    let service = service("idle");
-    install(&service, &echo(), &[OsString::from("1")]).unwrap();
+    let installed = service("idle");
+    let service = &installed.0;
+    install(service, &echo(), &[OsString::from("1")]).unwrap();
     let scratch = tempfile::tempdir().unwrap();
     env::set_current_dir(scratch.path()).unwrap();
-    let first = pid(&service);
+    let first = pid(service);
     drop(scratch);
-    assert_eq!(pid(&service), first);
+    assert_eq!(pid(service), first);
     thread::sleep(Duration::from_millis(2500));
     assert!(service.socket_path().unwrap().exists());
-    assert_ne!(pid(&service), first);
-    uninstall(&service).unwrap();
+    assert_ne!(pid(service), first);
+    uninstall(service).unwrap();
 }
 
 /// Runs itself in a child process with fixed base directories, since a test

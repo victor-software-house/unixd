@@ -60,6 +60,8 @@ pub enum InstallError {
         /// The most bytes the platform allows.
         limit: usize,
     },
+    /// launchd did not create the socket for the user within 5 seconds.
+    SocketNotReady(PathBuf),
     /// `launchctl` or `systemctl` failed.
     Command {
         /// The command line.
@@ -83,6 +85,9 @@ impl fmt::Display for InstallError {
                 "the socket path {} is longer than {limit} bytes",
                 path.display()
             ),
+            Self::SocketNotReady(path) => {
+                write!(formatter, "launchd did not create {}", path.display())
+            }
             Self::Command { command, stderr } => write!(formatter, "{command} failed: {stderr}"),
             Self::Io(error) => write!(formatter, "unit file error: {error}"),
         }
@@ -124,14 +129,29 @@ pub fn install(service: &Service, program: &Path, args: &[OsString]) -> Result<(
     platform::install(service, &socket, program, args)
 }
 
-/// Stops `service` and removes its units and its socket. Removing a service
-/// that is not installed succeeds.
+/// Stops `service` and removes its units, its socket, and the socket's
+/// directory when nothing else is in it. Removing a service that is not
+/// installed succeeds.
 ///
 /// # Errors
 ///
 /// When a file or the service manager fails.
 pub fn uninstall(service: &Service) -> Result<(), InstallError> {
-    platform::uninstall(service)
+    platform::uninstall(service)?;
+    if let Some(dir) = service.socket_path()?.parent() {
+        match fs::remove_dir(dir) {
+            Err(error)
+                if !matches!(
+                    error.kind(),
+                    io::ErrorKind::NotFound | io::ErrorKind::DirectoryNotEmpty
+                ) =>
+            {
+                return Err(error.into());
+            }
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 fn absolute_env(variable: &'static str) -> Result<PathBuf, InstallError> {
@@ -286,7 +306,25 @@ mod platform {
         run(Command::new("launchctl")
             .arg("bootstrap")
             .arg(domain())
-            .arg(&plist))
+            .arg(&plist))?;
+        await_socket(socket)
+    }
+
+    /// Waits up to 5 seconds for launchd to hand the socket to the user.
+    /// launchd binds it as root and changes the owner afterwards, so a client
+    /// that connects in between gets `EACCES`.
+    fn await_socket(socket: &Path) -> Result<(), InstallError> {
+        use std::os::unix::fs::{FileTypeExt as _, MetadataExt as _};
+        let uid = rustix::process::geteuid().as_raw();
+        for _ in 0..50 {
+            if std::fs::symlink_metadata(socket)
+                .is_ok_and(|metadata| metadata.file_type().is_socket() && metadata.uid() == uid)
+            {
+                return Ok(());
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+        Err(InstallError::SocketNotReady(socket.to_owned()))
     }
 
     pub(super) fn uninstall(service: &Service) -> Result<(), InstallError> {
