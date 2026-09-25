@@ -1,0 +1,11 @@
+# A bump leaves Cargo.lock stale, and ci.yml runs `cargo package --locked`.
+prepare:
+  after: [cargo, update, --workspace]
+  stage: [Cargo.lock]
+
+# Published in this order: unixd's tests depend on unixd-cache.
+packages:
+  - name: unixd-cache
+    path: crates/unixd-cache/Cargo.toml
+  - name: unixd
+    path: crates/unixd/Cargo.toml

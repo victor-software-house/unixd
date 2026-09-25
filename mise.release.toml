@@ -1,0 +1,5 @@
+# Loaded when MISE_ENV contains `release`.
+# Published verctl tarball only. No rust.
+
+[tools]
+"github:victor-software-house/verctl" = "0.3.3"
