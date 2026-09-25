@@ -34,4 +34,4 @@ jobs:
         with:
           version: 2026.9.13
           cache: true
-      - uses: victor-software-house/verctl/actions/version-pr@25df3c4d374f22fb98eb694baa51dd8ac419b202 # v0.3.3
+      - uses: victor-software-house/verctl/actions/version-pr@eeb2a4404a63bd907089471ea13e660a276d081e # v0.3.4
