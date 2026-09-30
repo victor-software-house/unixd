@@ -98,7 +98,11 @@ impl error::Error for InstallError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             Self::Io(error) => Some(error),
-            _ => None,
+            Self::NoBaseDirectory(_)
+            | Self::NotUnicode(_)
+            | Self::SocketPathTooLong { .. }
+            | Self::SocketNotReady(_)
+            | Self::Command { .. } => None,
         }
     }
 }

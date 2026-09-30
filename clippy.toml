@@ -2,3 +2,15 @@ msrv = "1.97.1"
 avoid-breaking-exported-api = false
 allow-unwrap-in-tests = true
 allow-expect-in-tests = true
+disallowed-macros = [
+    { path = "core::concat", reason = "use formatdoc/indoc for multiline strings" },
+    { path = "std::concat", reason = "use formatdoc/indoc for multiline strings" },
+]
+await-holding-invalid-types = [
+    "tokio::sync::MutexGuard",
+    "tokio::sync::RwLockReadGuard",
+    "tokio::sync::RwLockWriteGuard",
+]
+disallowed-methods = [
+    { path = "tokio::sync::mpsc::unbounded_channel", reason = "no backpressure; use a bounded channel" },
+]
