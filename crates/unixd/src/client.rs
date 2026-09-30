@@ -138,7 +138,14 @@ impl error::Error for ClientError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             Self::Io(error) => Some(error),
-            _ => None,
+            Self::Unavailable
+            | Self::Timeout
+            | Self::PeerMismatch
+            | Self::FrameTooLarge
+            | Self::Encode
+            | Self::Closed
+            | Self::InvalidFrame
+            | Self::Remote(_) => None,
         }
     }
 }
@@ -209,6 +216,10 @@ fn left(deadline: Instant) -> Result<Duration, ClientError> {
         .ok_or(ClientError::Timeout)
 }
 
+#[expect(
+    clippy::wildcard_enum_match_arm,
+    reason = "io::ErrorKind is non_exhaustive, so every other kind falls through"
+)]
 fn connect_error(error: io::Error) -> ClientError {
     match error.kind() {
         io::ErrorKind::NotFound | io::ErrorKind::ConnectionRefused => ClientError::Unavailable,
@@ -216,6 +227,10 @@ fn connect_error(error: io::Error) -> ClientError {
     }
 }
 
+#[expect(
+    clippy::wildcard_enum_match_arm,
+    reason = "io::ErrorKind is non_exhaustive, so every other kind falls through"
+)]
 fn io_error(error: io::Error) -> ClientError {
     match error.kind() {
         io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut => ClientError::Timeout,

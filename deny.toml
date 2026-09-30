@@ -20,6 +20,12 @@ confidence-threshold = 0.93
 multiple-versions = "warn"
 wildcards = "deny"
 highlight = "all"
+# Each entry has a reason. `wrappers` names the only crates that may depend
+# on it directly. A `skip` entry also names the condition for removing it.
+deny = [
+    { crate = "openssl", reason = "TLS is rustls" },
+    { crate = "native-tls", reason = "TLS is rustls" },
+]
 
 [sources]
 unknown-registry = "deny"

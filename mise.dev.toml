@@ -7,11 +7,16 @@ min_version = "2026.9.2"
 [tools]
 committed = "1.1.11"
 lefthook = "2.1.10"
-rust = { version = "nightly", components = "rustfmt,clippy", mr_boxington = true }
-mr-boxington = "1.17.0"
+rust = { version = "nightly-2026-09-29", components = "rustfmt,clippy", mr_boxington = true }
+mr-boxington = "1.20.0"
 "github:nextest-rs/nextest" = "cargo-nextest-0.9.143"
 "github:EmbarkStudios/cargo-deny" = "0.20.2"
 "github:bnjbvr/cargo-machete" = "0.9.2"
+
+# mise sets RUSTUP_TOOLCHAIN; without it, rustc resolves rust-toolchain.toml.
+[tasks."check:toolchain"]
+description = "mise.dev.toml and rust-toolchain.toml pin the same toolchain"
+run = '[ "$(rustc -V)" = "$(env -u RUSTUP_TOOLCHAIN RUSTUP_AUTO_INSTALL=0 rustc -V)" ] || { echo "✘ mise.dev.toml and rust-toolchain.toml pin different toolchains"; exit 1; }'
 
 [tasks.format]
 description = "rustfmt check"
@@ -67,7 +72,7 @@ usage = 'arg "[commits]" default="HEAD" help="Commit or range"'
 run = 'committed "${usage_commits}"'
 
 [tasks.verify]
-description = "Format, lint, feature sets, nextest, doc-tests, deny, unused crates"
+description = "Toolchain pins, format, lint, feature sets, nextest, doc-tests, deny, unused crates"
 # mbx shares one store and compiler pool; separate target dirs keep Cargo's
 # directory lock from serializing the parallel tasks.
-depends = ["format", "lint", "check", "check:runtime-free", "test", "test:doc", "deny", "deps"]
+depends = ["check:toolchain", "format", "lint", "check", "check:runtime-free", "test", "test:doc", "deny", "deps"]
