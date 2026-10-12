@@ -1,0 +1,10 @@
+# Loaded when MISE_ENV contains `template`: the Copier template check in CI.
+# copier comes from PyPI through uvx, on the pinned interpreter.
+
+[tools]
+uv = "0.13.0"
+python = "3.14.8"
+
+[tasks."check:template"]
+description = "Fail when the Copier template has a newer tag than .copier-answers.yml"
+run = "uvx copier@9.18.2 check-update --quiet"

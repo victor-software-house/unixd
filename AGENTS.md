@@ -40,8 +40,21 @@ docs/design/
 
 ## Development
 
-Rust nightly, pinned by `rust-toolchain.toml`. Tasks come from
-`mise.dev.toml`:
+The repository setup comes from the shared Copier template (kind
+`rust-crate`, layout `workspace`): `.copier-answers.yml` records its tag and
+answers. Take a new tag with `copier update --defaults` and check
+`git diff --check` before committing. The CI job `Template` fails when a newer
+tag exists.
+
+`mise.toml` pins stable 1.99.0 for build, lint, and test, and a dated nightly
+only for `rustfmt.toml`'s unstable options; `rust-toolchain.toml` and
+`rust-version` match the stable pin. The standard tasks come from ctl-core's
+`tasks/rust.toml`, included by `git::` URL. This repository's own tasks live in
+`mise-tasks/check.toml` (`check:features`, `check:repo`, `check:runtime-free`).
+`test` is the one task in `mise.toml`: it runs on nextest, because a signal
+test stops its own process, and only an inline task replaces an included one.
+Local work loads the `dev` profile, whose `mise install` arms the git hooks;
+CI sets `MISE_ENV=ci`.
 
 ```sh
 mise run format

@@ -1,26 +1,49 @@
-# CI already runs `mise run verify`. Do not arm hooks on runners.
+# Hooks call mise tasks, so a hook runs the same command as CI. mise.dev.toml
+# installs them through its postinstall hook; CI never loads that file, so no
+# runner has them and no hook needs a CI skip.
+#
+# Every command runs with MISE_ENV=dev,hooks, from the hookenv anchor on the
+# first command. MISE_ENV replaces the .miserc.toml default, so dev is named
+# again; a mise.hooks.toml, where a repository has one, disables auto deps
+# providers inside hooks.
 pre-commit:
-  skip:
-    - run: test -n "$CI"
   commands:
     format:
-      glob: "**/*.rs"
+      # *.rs matches every depth; **/*.rs misses files at the root.
+      glob: "*.rs"
+      env: &hookenv { MISE_ENV: "dev,hooks" }
       run: mise run format
+    # TODO(TPL-002): remove once a mise release includes jdx/mise#14316.
+    warm-remote-tasks:
+      priority: 1
+      env: *hookenv
+      run: env -u GIT_INDEX_FILE mise tasks ls >/dev/null
+    staged-secrets:
+      env: *hookenv
+      run: mise run hooks:secrets:staged
 
 commit-msg:
-  skip:
-    - run: test -n "$CI"
   commands:
+    # TODO(TPL-002): remove once a mise release includes jdx/mise#14316.
+    warm-remote-tasks:
+      priority: 1
+      env: *hookenv
+      run: env -u GIT_INDEX_FILE mise tasks ls >/dev/null
     committed:
+      env: *hookenv
       run: mise run commit-msg {1}
 
 pre-push:
-  skip:
-    - run: test -n "$CI"
   commands:
     lockfile:
+      env: *hookenv
       run: mise install --locked
-    committed:
+    commits:
+      env: *hookenv
       run: mise run commits
     verify:
+      env: *hookenv
       run: mise run verify
+    full-history-secrets:
+      env: *hookenv
+      run: mise run hooks:secrets:history

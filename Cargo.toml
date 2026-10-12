@@ -4,14 +4,32 @@ resolver = "3"
 
 [workspace.package]
 edition = "2024"
-rust-version = "1.97.1"
+rust-version = "1.99.0"
 license = "MIT"
 repository = "https://github.com/victor-software-house/unixd"
 authors = ["Victor Araújo <victor@victor-software-house.com>"]
 
+# Each dependency is declared once; members write `workspace = true`.
+[workspace.dependencies]
+unixd-cache = { version = "0.0", path = "crates/unixd-cache" }
+futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
+humantime-serde = "1.1.1"
+indoc = "2.0.7"
+nix = { version = "0.31.3", default-features = false, features = ["socket", "user"] }
+plist = "1.10.1"
+rustix = "1.1.5"
+secrecy = "0.10.3"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sha2 = "0.11.0"
+tempfile = "3.27.0"
+tokio = "1.53.1"
+tokio-util = { version = "0.7.19", features = ["codec", "rt"] }
+
 [workspace.lints.rust]
 unsafe_code = "forbid"
 missing_docs = "deny"
+missing_debug_implementations = "deny"
 unreachable_pub = "deny"
 rust_2018_idioms = { level = "deny", priority = -1 }
 
