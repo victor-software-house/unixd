@@ -12,8 +12,7 @@ env:
   GIT_CONFIG_COUNT: "1"
   GIT_CONFIG_KEY_0: init.defaultBranch
   GIT_CONFIG_VALUE_0: main
-  CARGO_TERM_COLOR: always
-  MISE_ENV: dev,ci
+  MISE_ENV: ci
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}-${{ github.event.pull_request.base.sha || github.sha }}
@@ -39,5 +38,26 @@ jobs:
         run: mise run verify
       - name: Advisories
         run: mise run deny:advisories
+      - name: Semver
+        run: mise run semver
       - name: Package
         run: mise x -- cargo package --locked --workspace --all-features
+
+  template:
+    name: Template
+    # A pull request from a fork gets no secrets and cannot read the private
+    # template, so the check is skipped there instead of failing.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Mints a token from the vsh-templates-reader App, installs only uv and
+      # python, and runs mise.template.toml's check:template.
+      - name: Check the template version
+        uses: victor-software-house/ctl-core/.github/actions/copier-check@91a70d41e107ced0968e7d2301e4a01320cc0cbd # main, 2026-10-12
+        with:
+          client-id: ${{ secrets.TEMPLATES_APP_CLIENT_ID }}
+          private-key: ${{ secrets.TEMPLATES_APP_PRIVATE_KEY }}

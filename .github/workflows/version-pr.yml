@@ -12,8 +12,8 @@ env:
   GIT_CONFIG_COUNT: "1"
   GIT_CONFIG_KEY_0: init.defaultBranch
   GIT_CONFIG_VALUE_0: main
-  # `dev` for the toolchain prepare.after needs, `release` for verctl.
-  MISE_ENV: dev,release
+  # The toolchain prepare.after needs is in mise.toml; `release` adds verctl.
+  MISE_ENV: ci,release
 
 concurrency:
   group: version-pr-${{ github.ref }}
@@ -34,6 +34,10 @@ jobs:
         with:
           version: 2026.10.3
           cache: true
+          # verctl prepares the release, and its prepare.after runs
+          # `cargo update --workspace` (.ctl/ver.yaml), which needs rust and
+          # mr-boxington. deny, machete, nextest, and semver-checks are not needed.
+          install_args: rust mr-boxington github:victor-software-house/verctl
       - name: Mint Version PR token
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0

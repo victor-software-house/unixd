@@ -1,3 +1,5 @@
+# The pinned stable, for editors and plain cargo. The formatting nightly lives
+# only in mise.toml and the format task.
 [toolchain]
-channel = "nightly-2026-09-29"
-components = ["rustfmt", "clippy"]
+channel = "1.99.0"
+components = ["clippy"]

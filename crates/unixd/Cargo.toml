@@ -17,24 +17,24 @@ workspace = true
 default = []
 
 [dependencies]
-futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
-humantime-serde = "1.1.1"
-rustix = { version = "1.1.5", features = ["net", "process"] }
-secrecy = "0.10.3"
-serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
-tokio = { version = "1.53.1", features = ["io-util", "macros", "net", "rt", "signal", "sync", "time"] }
-tokio-util = { version = "0.7.19", features = ["codec", "rt"] }
+futures-util.workspace = true
+humantime-serde.workspace = true
+rustix = { workspace = true, features = ["net", "process"] }
+secrecy.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "signal", "sync", "time"] }
+tokio-util.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
-indoc = "2.0.7"
+indoc.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
-nix = { version = "0.31.3", default-features = false, features = ["socket", "user"] }
-plist = "1.10.1"
+nix.workspace = true
+plist.workspace = true
 
 [dev-dependencies]
-unixd-cache = { version = "0.0", path = "../unixd-cache" }
-serde_json = "1.0.151"
-tempfile = "3.27.0"
-tokio = { version = "1.53.1", features = ["rt-multi-thread", "test-util"] }
+unixd-cache.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "test-util"] }

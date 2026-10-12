@@ -1,0 +1,4 @@
+# The shared verify from ctl-core depends on check:features and check:repo by name.
+"check:features" = { description = "Type-check every crate, alone and with all features", run = ["cargo check --workspace --all-targets", "cargo check --workspace --all-targets --all-features"] }
+"check:repo" = { description = "unixd's own checks", depends = ["check:runtime-free"] }
+"check:runtime-free" = { description = "Prove unixd-cache pulls in no async runtime", run = "! cargo tree -p unixd-cache --edges normal | grep -qw tokio" }

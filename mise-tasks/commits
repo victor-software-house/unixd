@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Lint the commit messages in a range with committed"
+#USAGE arg "[commits]" default="HEAD" help="Commit or range"
+set -euo pipefail
+exec committed "${usage_commits}"
