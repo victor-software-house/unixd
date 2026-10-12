@@ -38,9 +38,28 @@ pre-push:
     lockfile:
       env: *hookenv
       run: mise install --locked
+    # Lints each pushed commit the remote does not have yet. git passes one
+    # `<local ref> <local sha> <remote ref> <remote sha>` line per ref on
+    # stdin. A delete (all-zero local sha) pushes nothing. Excluding every
+    # commit any remote-tracking ref already holds skips main's history,
+    # GitHub squash merges included, and commits pushed before, also on a
+    # push to a URL or to a remote with no tracking refs yet; the remote sha
+    # covers a remote tip that no tracking ref names.
     commits:
       env: *hookenv
-      run: mise run commits
+      use_stdin: true
+      run: |
+        zero=0000000000000000000000000000000000000000
+        while read -r _ lsha _ rsha; do
+          [ "$lsha" = "$zero" ] && continue
+          known=""
+          if [ "$rsha" != "$zero" ] && git cat-file -e "$rsha^{commit}" 2>/dev/null; then
+            known=$rsha
+          fi
+          commits=$(git rev-list "$lsha" --not --remotes $known)
+          [ -n "$commits" ] || continue
+          mise run commits $commits </dev/null || exit 1
+        done
     verify:
       env: *hookenv
       run: mise run verify

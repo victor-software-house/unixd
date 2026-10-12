@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-#MISE description="Lint the commit messages in a range with committed"
-#USAGE arg "[commits]" default="HEAD" help="Commit or range"
+#MISE description="Lint the commit messages of one or more commits or ranges with committed"
+#USAGE arg "[commits]..." var=#true default="HEAD" help="Commits or ranges"
 set -euo pipefail
-exec committed "${usage_commits}"
+eval "set -- ${usage_commits}"
+for commit in "$@"; do
+  committed "${commit}"
+done
