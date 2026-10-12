@@ -43,8 +43,8 @@ docs/design/
 The repository setup comes from the shared Copier template (kind
 `rust-crate`, layout `workspace`): `.copier-answers.yml` records its tag and
 answers. Take a new tag with `copier update --defaults` and check
-`git diff --check` before committing. The CI job `Template` fails when a newer
-tag exists.
+`git diff --check` before committing. The CI job `Template` fails when the
+newest tag would change a file.
 
 `mise.toml` pins stable 1.99.0 for build, lint, and test, and a dated nightly
 only for `rustfmt.toml`'s unstable options; `rust-toolchain.toml` and

@@ -55,9 +55,9 @@ jobs:
         with:
           persist-credentials: false
       # Mints a token from the vsh-templates-reader App, installs only uv and
-      # python, and runs mise.template.toml's check:template.
+      # python, and fails when the newest template tag would change a file.
       - name: Check the template version
-        uses: victor-software-house/ctl-core/.github/actions/copier-check@91a70d41e107ced0968e7d2301e4a01320cc0cbd # main, 2026-10-12
+        uses: victor-software-house/ctl-core/.github/actions/copier-check@6db8b6422ea7b1fca93304407800d984d4fae0c7 # main, 2026-10-12
         with:
           client-id: ${{ secrets.TEMPLATES_APP_CLIENT_ID }}
           private-key: ${{ secrets.TEMPLATES_APP_PRIVATE_KEY }}
