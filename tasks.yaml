@@ -2,7 +2,21 @@
 schema_version: 4
 prefix: UXD
 active: null
-queue: []
+queue:
+  - id: UXD-008
+    title: Drop the commit-hook warm-up for remote mise tasks
+    scope: lefthook
+    outcome: 'Commit hooks run remote mise tasks without a warm-up step again, because mise no longer lets git hook state reach the clone of a git:: include.'
+    blocked_by: []
+    acceptance:
+      - A mise release includes jdx/mise#14316.
+      - min_version in mise.dev.toml is at least that release.
+      - lefthook.yml has no warm-remote-tasks command and no TODO naming this row.
+    links:
+      - https://github.com/jdx/mise/pull/14316
+    notes:
+      - >2-
+        On mise 2026.10.7, the first fetch of a git:: task include inside pre-commit or commit-msg writes the include repository index into GIT_INDEX_FILE, and git status then fails with "unable to read <object>". The warm-up fetches the includes with GIT_INDEX_FILE unset before any other hook command.
 archive:
   - id: UXD-006
     title: Move the first consumer onto unixd

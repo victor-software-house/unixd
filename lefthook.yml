@@ -3,6 +3,10 @@ pre-commit:
   skip:
     - run: test -n "$CI"
   commands:
+    # TODO(UXD-008): remove once a mise release includes jdx/mise#14316.
+    warm-remote-tasks:
+      priority: 1
+      run: env -u GIT_INDEX_FILE mise tasks ls >/dev/null
     format:
       glob: "**/*.rs"
       run: mise run format
@@ -11,6 +15,10 @@ commit-msg:
   skip:
     - run: test -n "$CI"
   commands:
+    # TODO(UXD-008): remove once a mise release includes jdx/mise#14316.
+    warm-remote-tasks:
+      priority: 1
+      run: env -u GIT_INDEX_FILE mise tasks ls >/dev/null
     committed:
       run: mise run commit-msg {1}
 
