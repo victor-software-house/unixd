@@ -1,20 +1,19 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/victor-software-house/qctl/main/schema/tasks.schema.json
 schema_version: 4
 prefix: UXD
-active: UXD-008
-queue:
+active: null
+queue: []
+archive:
   - id: UXD-008
     title: Take the shared Rust setup from the Copier template
     scope: '.copier-answers.yml at templates v0.0.5, the files the template renders, mise.toml, mise-tasks/, the workflows, and every mise lock'
     outcome: unixd renders its repository setup from the shared template, builds on the pinned stable, runs the shared task catalog with nextest for test, and arms its git hooks on mise install.
-    blocked_by: []
-    acceptance:
-      - .copier-answers.yml records v0.0.5, and the rendered files come from the template.
-      - mise.toml pins stable 1.99.0 with the formatting nightly; rust-version and rust-toolchain.toml match; shared dependencies are declared once in [workspace.dependencies].
-      - verify runs ctl-core's catalog with check:features, check:repo (check:runtime-free), and test on nextest.
-      - On a fresh clone, mise install arms the hooks and leaves every lock unchanged; a commit passes pre-commit and commit-msg; verify, semver, and pre-push pass.
-      - CI runs with MISE_ENV=ci and has the Template job.
-archive:
+    completed: 2026-10-12T09:14:18
+    evidence:
+      - 'unixd #26 (cd85bf4) took the template at v0.0.5; released as unixd 0.0.4 and unixd-cache 0.0.2.'
+      - Per the PR, on a fresh linux-x64 clone mise install armed the hooks and left every lock unchanged, and verify (65 tests on nextest), semver, cargo package, and pre-push passed.
+    disposition: completed
+
   - id: UXD-006
     title: Move the first consumer onto unixd
     scope: adoption
