@@ -13,3 +13,10 @@ packages:
 # The crates version separately, so each gets its own tag and Release.
 tags:
   template: "{name}-v{version}"
+
+# Maintainers and Apps a changelog never credits (verctl 0.4.0).
+changelog:
+  internal_authors:
+    - any-victor
+    - "github-actions[bot]"
+    - "vsh-changeset-version[bot]"
