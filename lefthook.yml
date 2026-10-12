@@ -41,9 +41,10 @@ pre-push:
     # Lints each pushed commit the remote does not have yet. git passes one
     # `<local ref> <local sha> <remote ref> <remote sha>` line per ref on
     # stdin. A delete (all-zero local sha) pushes nothing. Excluding every
-    # commit the remote's tracking refs already hold skips main's history,
-    # GitHub squash merges included, and commits pushed before; the remote
-    # sha covers a remote tip that no tracking ref names.
+    # commit any remote-tracking ref already holds skips main's history,
+    # GitHub squash merges included, and commits pushed before, also on a
+    # push to a URL or to a remote with no tracking refs yet; the remote sha
+    # covers a remote tip that no tracking ref names.
     commits:
       env: *hookenv
       use_stdin: true
@@ -55,7 +56,7 @@ pre-push:
           if [ "$rsha" != "$zero" ] && git cat-file -e "$rsha^{commit}" 2>/dev/null; then
             known=$rsha
           fi
-          commits=$(git rev-list "$lsha" --not --remotes={1} $known)
+          commits=$(git rev-list "$lsha" --not --remotes $known)
           [ -n "$commits" ] || continue
           mise run commits $commits </dev/null || exit 1
         done
