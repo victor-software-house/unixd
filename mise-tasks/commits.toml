@@ -1,0 +1,5 @@
+# committed lints commit messages against committed.toml. lefthook's
+# commit-msg hook passes the message file, and pre-push runs commits once for
+# each pushed commit.
+commit-msg = { description = "Lint a commit message file with committed", usage = 'arg "<file>" help="Path to the commit message file"', run = 'committed --commit-file "${usage_file}"' }
+commits = { description = "Lint one commit or range with committed", usage = 'arg "[commit]" default="HEAD" help="A commit or range"', run = 'committed "${usage_commit}"' }

@@ -1,5 +1,5 @@
 # The latest stable mise is the floor; CI pins the same version.
-min_version = "2026.10.3"
+min_version = "2026.10.9"
 
 [settings]
 # mise loads git:: task includes only in experimental mode.
