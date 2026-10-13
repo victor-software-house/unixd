@@ -30,7 +30,7 @@ jobs:
       - name: Install locked toolchain
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          version: 2026.10.3
+          version: 2026.10.9
           cache: true
       - name: Cache builds with mbx
         uses: jdx/mr-boxington-action@9df1d4b18b2147788a7ee7a2c7b84ecf62fd89d3 # v1.5.0
@@ -57,7 +57,7 @@ jobs:
       # Mints a token from the vsh-templates-reader App, installs only uv and
       # python, and fails when the newest template tag would change a file.
       - name: Check the template version
-        uses: victor-software-house/ctl-core/.github/actions/copier-check@6db8b6422ea7b1fca93304407800d984d4fae0c7 # main, 2026-10-12
+        uses: victor-software-house/ctl-core/.github/actions/copier-check@4c178e81817f4040de9c2e66ccc9aac3172cb1a9 # main, 2026-10-13
         with:
           client-id: ${{ secrets.TEMPLATES_APP_CLIENT_ID }}
           private-key: ${{ secrets.TEMPLATES_APP_PRIVATE_KEY }}

@@ -13,22 +13,12 @@ pre-commit:
       glob: "*.rs"
       env: &hookenv { MISE_ENV: "dev,hooks" }
       run: mise run format
-    # TODO(TPL-002): remove once a mise release includes jdx/mise#14316.
-    warm-remote-tasks:
-      priority: 1
-      env: *hookenv
-      run: env -u GIT_INDEX_FILE mise tasks ls >/dev/null
     staged-secrets:
       env: *hookenv
       run: mise run hooks:secrets:staged
 
 commit-msg:
   commands:
-    # TODO(TPL-002): remove once a mise release includes jdx/mise#14316.
-    warm-remote-tasks:
-      priority: 1
-      env: *hookenv
-      run: env -u GIT_INDEX_FILE mise tasks ls >/dev/null
     committed:
       env: *hookenv
       run: mise run commit-msg {1}
@@ -58,7 +48,9 @@ pre-push:
           fi
           commits=$(git rev-list "$lsha" --not --remotes $known)
           [ -n "$commits" ] || continue
-          mise run commits $commits </dev/null || exit 1
+          for commit in $commits; do
+            mise run commits "$commit" </dev/null || exit 1
+          done
         done
     verify:
       env: *hookenv

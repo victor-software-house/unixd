@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Lint the git commit-msg file with committed"
-#USAGE arg "<file>" help="Path to the commit message file"
-set -euo pipefail
-exec committed --commit-file "${usage_file}"
