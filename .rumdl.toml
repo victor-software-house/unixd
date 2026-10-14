@@ -1,0 +1,12 @@
+# Markdown lint, checked by `mise run lint:md`.
+[global]
+# A release tool writes CHANGELOG.md; nobody edits it by hand.
+exclude = ["target/**", "CHANGELOG.md"]
+# Prose uses semantic line breaks, so line length is not linted.
+disable = ["MD013"]
+
+[per-file-ignores]
+# A one-line import of AGENTS.md.
+"CLAUDE.md" = ["MD041"]
+# OpenSpec delta specs start with their operation heading, not a title.
+"openspec/changes/*/specs/**/spec.md" = ["MD041"]

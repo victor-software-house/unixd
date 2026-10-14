@@ -1,7 +1,7 @@
-# Loaded when MISE_ENV contains `template`: the tools the Copier template
-# check in CI needs. The copier-check action runs copier from PyPI through
-# uvx, on the pinned interpreter.
+# Loaded when MISE_ENV contains `template`: the tools `copier update` and the
+# Copier template check need. Copier runs from PyPI through uvx on the pinned
+# interpreter.
 
 [tools]
-uv = "0.13.0"
+uv = "0.13.1"
 python = "3.14.8"

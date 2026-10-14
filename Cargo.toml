@@ -12,10 +12,15 @@ authors = ["Victor Araújo <victor@victor-software-house.com>"]
 # Each dependency is declared once; members write `workspace = true`.
 [workspace.dependencies]
 unixd-cache = { version = "0.0", path = "crates/unixd-cache" }
-futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
+futures-util = { version = "0.3.34", default-features = false, features = [
+  "std",
+] }
 humantime-serde = "1.1.1"
 indoc = "2.0.7"
-nix = { version = "0.31.3", default-features = false, features = ["socket", "user"] }
+nix = { version = "0.31.3", default-features = false, features = [
+  "socket",
+  "user",
+] }
 plist = "1.10.1"
 rustix = "1.1.5"
 secrecy = "0.10.3"
