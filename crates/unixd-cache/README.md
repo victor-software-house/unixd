@@ -15,6 +15,6 @@ Synchronous. No async runtime, no database. The same cache is correct whether
 a daemon or a direct in-process call owns it.
 
 Design: [`docs/design/daemon-and-cache.md`](../../docs/design/daemon-and-cache.md).
-Requirements: [`openspec/changes/disk-cache`](../../openspec/changes/disk-cache).
+Requirements: [`openspec/changes/disk-cache`](../../openspec/changes/archive/2026-09-24-disk-cache).
 
 MIT.

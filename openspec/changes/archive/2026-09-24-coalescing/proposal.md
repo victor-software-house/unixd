@@ -41,4 +41,4 @@ None.
 2. The equivalence test uses `unixd-cache` as a dev-dependency of `unixd`.
 
 [futures-util]: https://crates.io/crates/futures-util
-[map]: ../../../docs/research/extraction-map.md
+[map]: ../../../../docs/research/extraction-map.md

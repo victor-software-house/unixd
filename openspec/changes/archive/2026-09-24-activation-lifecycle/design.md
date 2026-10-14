@@ -34,8 +34,8 @@ The evidence is in the [activation research][activation] and the
 2. Installing changes per-user launchd and systemd state. Tests install under
    a unique test label and uninstall at the end.
 
-[activation]: ../../../docs/research/activation-and-cache.md
+[activation]: ../../../../docs/research/activation-and-cache.md
 [listenfd]: https://crates.io/crates/listenfd
 [plist]: https://crates.io/crates/plist
-[research]: ../../../docs/research/transport-and-lifecycle.md
+[research]: ../../../../docs/research/transport-and-lifecycle.md
 [tgs]: https://crates.io/crates/tokio-graceful-shutdown

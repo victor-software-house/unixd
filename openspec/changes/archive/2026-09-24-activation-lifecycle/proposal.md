@@ -42,8 +42,8 @@ change moves that path into the crate.
    for the LaunchAgent file.
 2. Installing runs `launchctl` on macOS and `systemctl --user` on Linux.
 
-[activation]: ../../../docs/research/activation-and-cache.md#4-live-activation-measurements
-[activation-spec]: ../../specs/activation/spec.md
-[map]: ../../../docs/research/extraction-map.md
+[activation]: ../../../../docs/research/activation-and-cache.md#4-live-activation-measurements
+[activation-spec]: ../../../specs/activation/spec.md
+[map]: ../../../../docs/research/extraction-map.md
 [plist]: https://crates.io/crates/plist
 [tokio-util]: https://crates.io/crates/tokio-util

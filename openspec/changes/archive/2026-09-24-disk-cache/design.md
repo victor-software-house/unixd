@@ -31,5 +31,5 @@
 
 [fs2]: https://crates.io/crates/fs2
 [humantime-serde]: https://crates.io/crates/humantime-serde
-[research]: ../../../docs/research/cache-maintenance.md
+[research]: ../../../../docs/research/cache-maintenance.md
 [tempfile]: https://crates.io/crates/tempfile
