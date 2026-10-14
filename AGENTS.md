@@ -50,7 +50,10 @@ newest tag would change a file.
 only for `rustfmt.toml`'s unstable options; `rust-toolchain.toml` and
 `rust-version` match the stable pin. The standard tasks come from ctl-core's
 `tasks/rust.toml`, included by `git::` URL. This repository's own tasks live in
-`mise-tasks/check.toml` (`check:features`, `check:repo`, `check:runtime-free`).
+`mise-tasks/check.toml` (`check:features`, `check:runtime-free`).
+The template owns `check:repo` (TOML format, Markdown, spelling, workflows,
+OpenSpec, then `check:local`); this repository's own check goes in
+`mise-tasks/local.toml` as `check:local`, never in `check:repo`.
 `test` is the one task in `mise.toml`: it runs on nextest, because a signal
 test stops its own process, and only an inline task replaces an included one.
 Local work loads the `dev` profile, whose `mise install` arms the git hooks;
