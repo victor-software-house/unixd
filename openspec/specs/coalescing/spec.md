@@ -1,6 +1,7 @@
 # coalescing Specification
 
 ## Purpose
+
 How a unixd daemon runs one upstream call for concurrent identical requests, and why the daemon and the direct path agree.
 
 ## Requirements

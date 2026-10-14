@@ -1,6 +1,7 @@
 # secrets Specification
 
 ## Purpose
+
 How a unixd daemon holds secrets: in memory only, with idle and maximum lifetimes, zeroed on removal, and with core dumps off.
 
 ## Requirements

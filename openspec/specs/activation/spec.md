@@ -1,6 +1,7 @@
 # activation Specification
 
 ## Purpose
+
 How a unixd daemon starts: the platform service manager owns the socket, hands it over on standard input, and starts the daemon on demand.
 
 ## Requirements

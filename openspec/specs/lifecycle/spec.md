@@ -1,6 +1,7 @@
 # lifecycle Specification
 
 ## Purpose
+
 How a unixd daemon runs under its service manager: the stdin listener, unit install and uninstall, one drain path, and the idle exit.
 
 ## Requirements

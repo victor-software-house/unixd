@@ -1,6 +1,7 @@
 # cache Specification
 
 ## Purpose
+
 `unixd-cache` stores caller values on disk with fresh and stale horizons,
 holds one fetch per key across processes, and keeps the cache under
 configurable bounds, with no async runtime.
