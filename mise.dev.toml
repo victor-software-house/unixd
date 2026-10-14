@@ -3,7 +3,7 @@
 # mise-tasks/.
 
 [tools]
-lefthook = "2.2.1"
+lefthook = "2.2.2"
 "github:crate-ci/committed" = "1.1.11"
 gitleaks = "8.30.1"
 

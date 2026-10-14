@@ -43,7 +43,7 @@ None.
    [`serde_json`][serde-json], and [`rustix`][rustix] (`process`).
 2. The first consumer's error-code table moves into the consumer.
 
-[map]: ../../../docs/research/extraction-map.md
+[map]: ../../../../docs/research/extraction-map.md
 [rustix]: https://crates.io/crates/rustix
 [serde]: https://crates.io/crates/serde
 [serde-json]: https://crates.io/crates/serde_json

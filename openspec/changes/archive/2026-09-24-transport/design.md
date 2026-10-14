@@ -29,5 +29,5 @@ The evidence for each decision is in the [transport research][research].
    is read as a frame. The client always sends the newline.
 
 [jsonrpsee]: https://crates.io/crates/jsonrpsee
-[research]: ../../../docs/research/transport-and-lifecycle.md
+[research]: ../../../../docs/research/transport-and-lifecycle.md
 [tarpc]: https://crates.io/crates/tarpc

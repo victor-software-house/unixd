@@ -1,0 +1,10 @@
+# Spelling, checked by `mise run lint:typos`.
+[files]
+extend-exclude = ["*.lock"]
+
+# Tests and specs misspell a field name on purpose, to prove a config with an
+# unknown field is rejected.
+[default.extend-words]
+idel = "idel"
+timeuot = "timeuot"
+entires = "entires"

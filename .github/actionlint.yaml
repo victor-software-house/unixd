@@ -1,0 +1,4 @@
+self-hosted-runner:
+  # Namespace runner labels.
+  labels:
+    - nscloud-ubuntu-24.04-amd64-4x8

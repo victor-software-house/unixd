@@ -9,9 +9,7 @@ permissions:
   contents: read
 
 env:
-  GIT_CONFIG_COUNT: "1"
-  GIT_CONFIG_KEY_0: init.defaultBranch
-  GIT_CONFIG_VALUE_0: main
+  # The CI profile; local work loads dev from .miserc.toml, which CI never does.
   MISE_ENV: ci
 
 concurrency:
@@ -21,41 +19,43 @@ concurrency:
 jobs:
   verify:
     name: Verify
-    runs-on: ubuntu-latest
+    runs-on: nscloud-ubuntu-24.04-amd64-4x8
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install locked toolchain
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
         with:
           version: 2026.10.9
           cache: true
       - name: Cache builds with mbx
-        uses: jdx/mr-boxington-action@9df1d4b18b2147788a7ee7a2c7b84ecf62fd89d3 # v1.5.0
+        uses: jdx/mr-boxington-action@47ce49b32025d93a7a2f4570815afaa2b7092240 # v1.7.2
       - name: Verify
         run: mise run verify
       - name: Advisories
         run: mise run deny:advisories
+      # Compares the public API with the last release on crates.io.
       - name: Semver
         run: mise run semver
       - name: Package
-        run: mise x -- cargo package --locked --workspace --all-features
+        run: mise x -- cargo package --locked --all-features --workspace
 
   template:
     name: Template
     # A pull request from a fork gets no secrets and cannot read the private
     # template, so the check is skipped there instead of failing.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
+    runs-on: nscloud-ubuntu-24.04-amd64-4x8
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       # Mints a token from the vsh-templates-reader App, installs only uv and
-      # python, and fails when the newest template tag would change a file.
+      # python from mise.template.toml, and fails when the newest template tag
+      # would change the repository.
       - name: Check the template version
         uses: victor-software-house/ctl-core/.github/actions/copier-check@4c178e81817f4040de9c2e66ccc9aac3172cb1a9 # main, 2026-10-13
         with:

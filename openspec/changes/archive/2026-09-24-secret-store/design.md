@@ -62,5 +62,5 @@ secrets. This change adds the smallest store that matches them.
    hands out `&SecretBox` only, and the docs say so.
 2. On Linux with unencrypted swap, a secret can be written to swap.
 
-[lifecycle]: ../activation-lifecycle/design.md
-[research]: ../../../docs/research/cache-maintenance.md#3-secrets-in-memory
+[lifecycle]: ../2026-09-24-activation-lifecycle/design.md
+[research]: ../../../../docs/research/cache-maintenance.md#3-secrets-in-memory

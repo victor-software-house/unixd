@@ -1,0 +1,16 @@
+# Repository checks every kind runs. check:repo is the task verify calls: the
+# shared checks, then check:local, which mise-tasks/local.toml leaves to the
+# repository. The tools come from mise.toml.
+"format:toml" = { description = "TOML formatting check", run = "taplo fmt --check" }
+"lint:md" = { description = "Markdown lint", run = "rumdl check ." }
+"lint:typos" = { description = "Spelling in code, docs, and commit-bound text", run = "typos" }
+"lint:workflows" = { description = "GitHub Actions workflow lint", run = "actionlint" }
+specs = { description = "Validate every OpenSpec change and spec", run = "openspec validate --all --strict --no-interactive" }
+"check:repo" = { description = "Shared repository checks, then the repository's own check:local", depends = [
+  "format:toml",
+  "lint:md",
+  "lint:typos",
+  "lint:workflows",
+  "specs",
+  "check:local",
+] }

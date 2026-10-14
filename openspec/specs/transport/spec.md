@@ -1,6 +1,7 @@
 # transport Specification
 
 ## Purpose
+
 How one request and one response cross a unixd socket: capped frames, versioned envelopes, the peer check, deadlines, and the blocking client.
 
 ## Requirements

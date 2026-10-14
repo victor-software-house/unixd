@@ -41,7 +41,7 @@ None.
 2. `rustix` already has the `process` feature for `setrlimit` and `prctl`.
 3. `unixd-cache` does not change.
 
-[disk-cache]: ../disk-cache/proposal.md
-[research]: ../../../docs/research/cache-maintenance.md#3-secrets-in-memory
+[disk-cache]: ../2026-09-24-disk-cache/proposal.md
+[research]: ../../../../docs/research/cache-maintenance.md#3-secrets-in-memory
 [secrecy]: https://crates.io/crates/secrecy
 [zeroize]: https://crates.io/crates/zeroize

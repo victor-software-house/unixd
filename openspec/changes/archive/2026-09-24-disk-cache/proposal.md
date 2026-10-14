@@ -47,7 +47,7 @@ None.
 
 [fs2]: https://crates.io/crates/fs2
 [http-cache-semantics]: https://crates.io/crates/http-cache-semantics
-[research]: ../../../docs/research/activation-and-cache.md#7-the-disk-cache
+[research]: ../../../../docs/research/activation-and-cache.md#7-the-disk-cache
 [rustix]: https://crates.io/crates/rustix
 [serde]: https://crates.io/crates/serde
 [serde-json]: https://crates.io/crates/serde_json

@@ -25,4 +25,4 @@ The options are compared in the [research][research].
 
 [asf]: https://crates.io/crates/async_singleflight
 [moka]: https://crates.io/crates/moka
-[research]: ../../../docs/research/transport-and-lifecycle.md#5-single-flight
+[research]: ../../../../docs/research/transport-and-lifecycle.md#5-single-flight
