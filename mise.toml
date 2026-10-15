@@ -50,7 +50,7 @@ includes = [
   "git::https://github.com/victor-software-house/qctl.git//tasks/q?ref=v0.4.4",
   # The standard Rust tasks (check:toolchain, format, lint, test, test:doc,
   # deny, deny:advisories, deps, semver, verify).
-  "git::https://github.com/victor-software-house/ctl-core.git//tasks/rust.toml?ref=v0.6.15",
+  "git::https://github.com/victor-software-house/ctl-core.git//tasks/rust.toml?ref=v0.6.20",
 ]
 
 # The one task here: the last include wins over mise-tasks/, so only an inline

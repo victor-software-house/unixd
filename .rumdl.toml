@@ -8,5 +8,8 @@ disable = ["MD013"]
 [per-file-ignores]
 # A one-line import of AGENTS.md.
 "CLAUDE.md" = ["MD041"]
+# A changeset is one release-note paragraph under YAML frontmatter, in the
+# Bun kinds (Changesets) and the Rust kinds (verctl reads the same format).
+".changeset/*.md" = ["MD041"]
 # OpenSpec delta specs start with their operation heading, not a title.
 "openspec/changes/*/specs/**/spec.md" = ["MD041"]
