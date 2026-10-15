@@ -16,7 +16,9 @@ env:
 
 # One group for the runs that can publish, so a manual run and a release never
 # run at the same time. Every other run gets a group of its own: a group keeps
-# one pending run, and a no-op run would replace a waiting release.
+# one pending run, and a no-op run would replace a waiting release. A newer
+# publishing run still replaces a waiting one; re-run the replaced run to
+# publish the version it carried.
 concurrency:
   group: >-
     ${{ ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
