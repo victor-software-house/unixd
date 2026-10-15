@@ -14,10 +14,17 @@ env:
   GIT_CONFIG_VALUE_0: main
   MISE_ENV: ci,release
 
+# One group for the runs that can publish, so a manual run and a release never
+# run at the same time. Every other run gets a group of its own: a group keeps
+# one pending run, and a no-op run would replace a waiting release.
 concurrency:
-  # One group for every run, so a manual run and a merged Version PR never
-  # publish at the same time.
-  group: publish
+  group: >-
+    ${{ ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+         (github.event.pull_request.merged &&
+          github.event.pull_request.base.ref == 'main' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.event.pull_request.head.ref == 'version-packages'))
+        && 'publish' || format('publish-noop-{0}', github.run_id) }}
   cancel-in-progress: false
 
 jobs:
