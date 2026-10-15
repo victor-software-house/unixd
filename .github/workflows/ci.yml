@@ -57,7 +57,7 @@ jobs:
       # python from mise.template.toml, and fails when the newest template tag
       # would change the repository.
       - name: Check the template version
-        uses: victor-software-house/ctl-core/.github/actions/copier-check@4c178e81817f4040de9c2e66ccc9aac3172cb1a9 # main, 2026-10-13
+        uses: victor-software-house/ctl-core/.github/actions/copier-check@1fc4bc9acf3e8ec64eb8433837da5f720c295e93 # main, 2026-10-15
         with:
           client-id: ${{ secrets.TEMPLATES_APP_CLIENT_ID }}
           private-key: ${{ secrets.TEMPLATES_APP_PRIVATE_KEY }}
