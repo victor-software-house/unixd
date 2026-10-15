@@ -15,7 +15,9 @@ env:
   MISE_ENV: ci,release
 
 concurrency:
-  group: publish-${{ github.ref }}
+  # One group for every run, so a manual run and a merged Version PR never
+  # publish at the same time.
+  group: publish
   cancel-in-progress: false
 
 jobs:
