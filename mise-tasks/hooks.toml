@@ -1,3 +1,0 @@
-# Credential scans for the git hooks; gitleaks comes from mise.dev.toml.
-"hooks:secrets:staged" = { description = "Scan the staged diff for credentials", run = "gitleaks git --staged --redact --no-banner" }
-"hooks:secrets:history" = { description = "Scan the full history for credentials", run = "gitleaks git --redact --no-banner" }

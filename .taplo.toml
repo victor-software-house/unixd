@@ -11,7 +11,4 @@ exclude = [
   "rustfmt.toml",
   "clippy.toml",
   "deny.toml",
-  "mise-tasks/commits.toml",
-  "mise-tasks/hooks.toml",
-  "mise-tasks/repo.toml",
 ]
