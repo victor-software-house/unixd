@@ -1,5 +1,5 @@
 # Changes here will be overwritten by Copier; edit with `copier update --data`.
-_commit: v0.0.24
+_commit: v0.0.26
 _src_path: https://github.com/victor-software-house/templates.git
 clippy_disallowed_methods: []
 clippy_disallowed_types: []
@@ -8,9 +8,9 @@ deny_ignore: []
 deny_licenses: []
 deny_skip: []
 feature_sets: []
-project: rust-crate
 layout: workspace
 nightly_fmt: true
 openspec: true
+project: rust-crate
 published: true
 tokio: true
