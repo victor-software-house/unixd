@@ -8,7 +8,7 @@ deny_ignore: []
 deny_licenses: []
 deny_skip: []
 feature_sets: []
-kind: rust-crate
+project: rust-crate
 layout: workspace
 nightly_fmt: true
 openspec: true
