@@ -31,7 +31,7 @@ jq = "1.8.2"
 # sleep-bound tests span three binaries, which nextest runs in parallel.
 "github:nextest-rs/nextest" = "cargo-nextest-0.9.143"
 
-# The repository checks (mise-tasks/repo.toml).
+# The repository checks (mise-tasks/check/repo.sh).
 taplo = "0.10.0"
 rumdl = "0.2.79"
 typos = "1.51.1"

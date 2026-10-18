@@ -40,7 +40,7 @@ docs/design/
 
 ## Development
 
-The repository setup comes from the shared Copier template (kind
+The repository setup comes from the shared Copier template (project
 `rust-crate`, layout `workspace`): `.copier-answers.yml` records its tag and
 answers. Take a new tag with `copier update --defaults` and check
 `git diff --check` before committing. The CI job `Template` fails when the
