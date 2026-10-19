@@ -47,10 +47,14 @@ node = "24.21.0"
 includes = [
   # Pinned git:: catalogs follow mise-tasks.
   "mise-tasks",
+  # `mise run ver`, which the release workflow and check:versions run. Bump
+  # the ref together with the verctl pin in mise.release.toml and the
+  # workflow's pin.
+  "git::https://github.com/victor-software-house/verctl.git//tasks/ver?ref=v0.5.1",
   "git::https://github.com/victor-software-house/qctl.git//tasks/q?ref=v0.4.4",
   # The standard Rust tasks (check:toolchain, format, lint, test, test:doc,
-  # deny, deny:advisories, deps, semver, verify).
-  "git::https://github.com/victor-software-house/ctl-core.git//tasks/rust.toml?ref=v0.6.20",
+  # deny, deny:advisories, deps, semver, check:versions, verify).
+  "git::https://github.com/victor-software-house/ctl-core.git//tasks/rust.toml?ref=v0.6.27",
 ]
 
 # The one task here: the last include wins over mise-tasks/, so only an inline
