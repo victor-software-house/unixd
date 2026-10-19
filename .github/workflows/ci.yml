@@ -7,6 +7,9 @@ on:
 
 permissions:
   contents: read
+  # ctl-core's check:versions reads a pull request that changes a manifest
+  # version, to tell the Version PR apart from a hand edit.
+  pull-requests: read
 
 env:
   # The CI profile; local work loads dev from .miserc.toml, which CI never does.
@@ -33,6 +36,8 @@ jobs:
       - name: Cache builds with mbx
         uses: jdx/mr-boxington-action@47ce49b32025d93a7a2f4570815afaa2b7092240 # v1.7.2
       - name: Verify
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: mise run verify
       - name: Advisories
         run: mise run deny:advisories
