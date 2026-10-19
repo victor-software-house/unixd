@@ -1,5 +1,5 @@
-# Loaded when MISE_ENV contains `release`.
-# Published verctl tarball only. No rust.
+# Loaded when MISE_ENV contains `release`: the published verctl tarball. The
+# `ver` task the release workflow runs is in mise.toml.
 
 [tools]
-"github:victor-software-house/verctl" = "0.4.0"
+"github:victor-software-house/verctl" = "0.5.1"
