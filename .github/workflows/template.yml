@@ -21,12 +21,13 @@ jobs:
   # Any other pull request gets a notice; a push or the schedule keeps an issue
   # open while the newest tag would change this repository. The shared
   # workflow reads the template with the organization's reader App, so it
-  # takes the organization's secrets.
+  # takes that App's key and no other secret.
   template:
-    uses: victor-software-house/actions/.github/workflows/template-check.yml@066f0ddf09b4610db12d2ca08d985f9d0ee5e157 # main, 2026-10-19
+    uses: victor-software-house/actions/.github/workflows/template-check.yml@1b6e52f1c2783dec2481fe281850aeb0161e92bd # main, 2026-10-20
     permissions:
       contents: read
       issues: write
     with:
       mise-version: 2026.10.9
-    secrets: inherit
+    secrets:
+      TEMPLATES_APP_PRIVATE_KEY: ${{ secrets.TEMPLATES_APP_PRIVATE_KEY }}

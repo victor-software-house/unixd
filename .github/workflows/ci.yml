@@ -19,8 +19,9 @@ jobs:
   # The shared workflow runs verify, picks the runner from this repository's
   # visibility, and caches builds with mbx.
   verify:
-    uses: victor-software-house/actions/.github/workflows/rust-ci.yml@066f0ddf09b4610db12d2ca08d985f9d0ee5e157 # main, 2026-10-19
+    uses: victor-software-house/actions/.github/workflows/rust-ci.yml@1b6e52f1c2783dec2481fe281850aeb0161e92bd # main, 2026-10-20
     with:
       mise-version: 2026.10.9
       advisories: true
       semver: true
+      timeout-minutes: 8
