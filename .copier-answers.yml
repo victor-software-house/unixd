@@ -1,16 +1,39 @@
 # Changes here will be overwritten by Copier; edit with `copier update --data`.
-_commit: v0.0.27
+_commit: v0.0.30
 _src_path: https://github.com/victor-software-house/templates.git
 clippy_disallowed_methods: []
 clippy_disallowed_types: []
+default_branch: main
 deny_bans: []
 deny_ignore: []
 deny_licenses: []
 deny_skip: []
 feature_sets: []
+github_owner: victor-software-house
 layout: workspace
+max_width: 100
+mise_version: 2026.10.9
 nightly_fmt: true
-openspec: true
+pieces:
+- hooks
+- lint_markdown
+- lint_toml
+- lint_typos
+- openspec
+- ci
+- drift_check
+- rust_tasks
+- rustfmt
+- clippy
+- cargo_lints
+- deny
+pieces_extra:
+- lint_workflows
+- machete
+- doc_tests
+- rustdoc
 project: rust-crate
 published: true
+rust_nightly: nightly-2026-09-29
+rust_version: 1.99.0
 tokio: true
