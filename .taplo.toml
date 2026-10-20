@@ -6,7 +6,6 @@ exclude = [
   "committed.toml",
   "mise.dev.toml",
   "mise.ci.toml",
-  "mise.template.toml",
   "rust-toolchain.toml",
   "rustfmt.toml",
   "clippy.toml",

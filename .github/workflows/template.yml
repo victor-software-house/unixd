@@ -1,0 +1,32 @@
+name: Template
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # A tag reaches the repository through this run's issue, not through a
+  # failing pull request.
+  schedule:
+    - cron: "17 9 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: template-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  # Fails an update pull request that does not reach the newest template tag.
+  # Any other pull request gets a notice; a push or the schedule keeps an issue
+  # open while the newest tag would change this repository. The shared
+  # workflow reads the template with the organization's reader App, so it
+  # takes the organization's secrets.
+  template:
+    uses: victor-software-house/actions/.github/workflows/template-check.yml@066f0ddf09b4610db12d2ca08d985f9d0ee5e157 # main, 2026-10-19
+    permissions:
+      contents: read
+      issues: write
+    with:
+      mise-version: 2026.10.9
+    secrets: inherit

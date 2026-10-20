@@ -43,14 +43,22 @@ docs/design/
 The repository setup comes from the shared Copier template (project
 `rust-crate`, layout `workspace`): `.copier-answers.yml` records its tag and
 answers. Take a new tag with `copier update --defaults` and check
-`git diff --check` before committing. The CI job `Template` fails when the
-newest tag would change a file.
+`git diff --check` before committing.
+`ci.yml` and `template.yml` call the shared workflows of the public actions
+repository at the commit the template pins; their checks report as
+`verify / Verify` and `template / Template`. The drift check fails only a
+pull request that changes `.copier-answers.yml` without reaching the newest
+tag; a push to `main` or the daily run keeps a "Template update available"
+issue open while a newer tag would change a file.
 
 `mise.toml` pins stable 1.99.0 for build, lint, and test, and a dated nightly
-only for `rustfmt.toml`'s unstable options; `rust-toolchain.toml` and
-`rust-version` match the stable pin. The standard tasks come from ctl-core's
-`tasks/rust.toml`, included by `git::` URL. This repository's own tasks live in
-`mise-tasks/check.toml` (`check:features`, `check:runtime-free`).
+for `rustfmt.toml`'s unstable options and for `doc`, which builds rustdoc as
+docs.rs does; `rust-toolchain.toml` and `rust-version` match the stable pin.
+The standard tasks come from the actions repository's `tasks/rust.toml`,
+included by `git::` URL, and `mise.toml` composes `verify` from them. This
+repository's own tasks are `check:features` in the template's starter
+`mise-tasks/check/features.sh`, and `check:runtime-free` in
+`mise-tasks/check.toml`.
 The template owns `check:repo` (TOML format, Markdown, spelling, workflows,
 OpenSpec, and `check:local`); this repository's own check goes in
 `mise-tasks/check/local.sh` as `check:local`, never in `check:repo`.
