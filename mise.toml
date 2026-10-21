@@ -78,10 +78,10 @@ includes = [
   # the workflow's pin.
   "git::https://github.com/victor-software-house/verctl.git//tasks/ver?ref=v0.5.1",
   "git::https://github.com/victor-software-house/qctl.git//tasks/q?ref=v0.4.4",
-  # The shared Rust tasks, at actions main, 2026-10-20.
-  "git::https://github.com/victor-software-house/actions.git//tasks/rust.toml?ref=add0114e5b9e94ab5d8255f72ea84259e4cfa8d8",
-  # template:check, template:off, and template:on, at actions main, 2026-10-20.
-  "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=add0114e5b9e94ab5d8255f72ea84259e4cfa8d8",
+  # The shared Rust tasks, at actions main, 2026-10-21.
+  "git::https://github.com/victor-software-house/actions.git//tasks/rust.toml?ref=a04de3586cc377e1c7d98972f10ae7e8fb4c0631",
+  # template:check, template:off, and template:on, at actions main, 2026-10-21.
+  "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=a04de3586cc377e1c7d98972f10ae7e8fb4c0631",
 ]
 
 # The one task here: the last include wins over mise-tasks/, so only an inline
