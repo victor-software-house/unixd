@@ -23,11 +23,11 @@ jobs:
   # workflow reads the template with the organization's reader App, so it
   # takes that App's key and no other secret.
   template:
-    uses: victor-software-house/actions/.github/workflows/template-check.yml@a04de3586cc377e1c7d98972f10ae7e8fb4c0631 # main, 2026-10-21
+    uses: victor-software-house/actions/.github/workflows/template-check.yml@996b7ae482fa620f19834c4bfb0d8466aa05b635 # main, 2026-10-23
     permissions:
       contents: read
       issues: write
     with:
-      mise-version: 2026.10.9
+      mise-version: 2026.10.17
     secrets:
       TEMPLATES_APP_PRIVATE_KEY: ${{ secrets.TEMPLATES_APP_PRIVATE_KEY }}

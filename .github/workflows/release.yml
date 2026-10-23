@@ -18,7 +18,7 @@ jobs:
       pull-requests: write # the Version PR without the App
     uses: victor-software-house/verctl/.github/workflows/release.yml@f7a629b2ec702ad6a499e32a735b0e4fd1192c79 # v0.5.1
     with:
-      mise-version: 2026.10.9
+      mise-version: 2026.10.17
       mise-env: ci,release
       auto-merge: true
     # The App token opens the Version PR so that its CI starts; a PR opened
