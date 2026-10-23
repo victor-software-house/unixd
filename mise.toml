@@ -1,5 +1,5 @@
 # The latest stable mise is the floor; CI pins the same version.
-min_version = "2026.10.9"
+min_version = "2026.10.17"
 
 [settings]
 # mise loads git:: task includes only in experimental mode.
@@ -78,10 +78,10 @@ includes = [
   # the workflow's pin.
   "git::https://github.com/victor-software-house/verctl.git//tasks/ver?ref=v0.5.1",
   "git::https://github.com/victor-software-house/qctl.git//tasks/q?ref=v0.4.4",
-  # The shared Rust tasks, at actions main, 2026-10-21.
-  "git::https://github.com/victor-software-house/actions.git//tasks/rust.toml?ref=a04de3586cc377e1c7d98972f10ae7e8fb4c0631",
-  # template:check, template:off, and template:on, at actions main, 2026-10-21.
-  "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=a04de3586cc377e1c7d98972f10ae7e8fb4c0631",
+  # The shared Rust tasks, at actions main, 2026-10-23.
+  "git::https://github.com/victor-software-house/actions.git//tasks/rust.toml?ref=996b7ae482fa620f19834c4bfb0d8466aa05b635",
+  # template:check, template:off, and template:on, at actions main, 2026-10-23.
+  "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=996b7ae482fa620f19834c4bfb0d8466aa05b635",
 ]
 
 # The one task here: the last include wins over mise-tasks/, so only an inline
