@@ -1,7 +1,9 @@
 name: CI
 
 on:
+  # A draft pull request runs no CI; marking it ready starts the run.
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
 
@@ -12,14 +14,17 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}-${{ github.event.pull_request.base.sha || github.sha }}
+  # One run per branch: a new push, or a retarget after the base merges,
+  # cancels the run it replaces, on the default branch as on a pull request.
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   # The shared workflow runs verify, picks the runner from this repository's
   # visibility, and caches builds with mbx.
   verify:
-    uses: victor-software-house/actions/.github/workflows/rust-ci.yml@996b7ae482fa620f19834c4bfb0d8466aa05b635 # main, 2026-10-23
+    if: ${{ !github.event.pull_request.draft }}
+    uses: victor-software-house/actions/.github/workflows/rust-ci.yml@1f79b4ff5eff1221289dad0baaf1b562037fc528 # main, 2026-10-23
     with:
       mise-version: 2026.10.17
       advisories: true

@@ -1,7 +1,9 @@
 name: Template
 
 on:
+  # A draft pull request runs no check; marking it ready starts the run.
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
   # A tag reaches the repository through this run's issue, not through a
@@ -13,7 +15,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: template-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  group: template-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -23,7 +25,8 @@ jobs:
   # workflow reads the template with the organization's reader App, so it
   # takes that App's key and no other secret.
   template:
-    uses: victor-software-house/actions/.github/workflows/template-check.yml@996b7ae482fa620f19834c4bfb0d8466aa05b635 # main, 2026-10-23
+    if: ${{ !github.event.pull_request.draft }}
+    uses: victor-software-house/actions/.github/workflows/template-check.yml@1f79b4ff5eff1221289dad0baaf1b562037fc528 # main, 2026-10-23
     permissions:
       contents: read
       issues: write
