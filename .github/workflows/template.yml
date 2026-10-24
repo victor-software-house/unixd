@@ -26,11 +26,45 @@ jobs:
   # takes that App's key and no other secret.
   template:
     if: ${{ !github.event.pull_request.draft }}
-    uses: victor-software-house/actions/.github/workflows/template-check.yml@1f79b4ff5eff1221289dad0baaf1b562037fc528 # main, 2026-10-23
+    uses: victor-software-house/actions/.github/workflows/template-check.yml@e043b23758a65d7d1261246374bd105bbd4270d4 # main, 2026-10-24
     permissions:
       contents: read
       issues: write
     with:
       mise-version: 2026.10.17
+      # A pull request that changes none of these files skips the check, which
+      # still reports. They are every file the template renders, whole or in
+      # part; check:template-paths keeps the list covering every file a
+      # render keeps in step, the starters left out.
+      paths: |
+        .copier-answers.yml
+        .changeset/config.json
+        .envrc
+        .github/actionlint.yaml
+        .github/workflows/ci.yml
+        .github/workflows/template.yml
+        .miserc.toml
+        .oxfmtrc.json
+        .rumdl.toml
+        .taplo.toml
+        .typos.toml
+        Cargo.toml
+        bunfig.toml
+        clippy.toml
+        committed.toml
+        deny.toml
+        knip.jsonc
+        lefthook.yml
+        mise-tasks/**
+        mise.ci.toml
+        mise.dev.toml
+        mise.hooks.toml
+        mise.toml
+        oxlint.config.ts
+        rust-toolchain.toml
+        rustfmt.toml
+        stylex.plugin.ts
+        tsconfig.json
+        tsdown.config.ts
     secrets:
       TEMPLATES_APP_PRIVATE_KEY: ${{ secrets.TEMPLATES_APP_PRIVATE_KEY }}
