@@ -1,12 +1,12 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/victor-software-house/qctl/main/schema/tasks.schema.json
-schema_version: 4
+# yaml-language-server: $schema=https://github.com/victor-software-house/qctl/releases/download/v0.6.0/tasks.schema.json
+schema_version: 5
 prefix: UXD
 active: null
 queue: []
 archive:
   - id: UXD-008
     title: Take the shared Rust setup from the Copier template
-    scope: '.copier-answers.yml at templates v0.0.5, the files the template renders, mise.toml, mise-tasks/, the workflows, and every mise lock'
+    scope: .copier-answers.yml at templates v0.0.5, the files the template renders, mise.toml, mise-tasks/, the workflows, and every mise lock
     outcome: unixd renders its repository setup from the shared template, builds on the pinned stable, runs the shared task catalog with nextest for test, and arms its git hooks on mise install.
     completed: 2026-10-12T09:14:18
     evidence:
