@@ -36,9 +36,8 @@ taplo = "0.10.0"
 rumdl = "0.2.79"
 typos = "1.51.1"
 actionlint = "1.7.12"
-# OpenSpec runs on node.
-node = "24.21.0"
-"npm:@fission-ai/openspec" = "1.14.1"
+# OpenSpec's standalone release binary; it needs no node.
+"github:Fission-AI/OpenSpec" = "1.15.0"
 
 # The shared Rust tasks read their toolchains from here and name none.
 [env]
