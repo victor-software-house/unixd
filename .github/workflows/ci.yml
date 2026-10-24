@@ -4,8 +4,16 @@ on:
   # A draft pull request runs no CI; marking it ready starts the run.
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-  push:
-    branches: [main]
+  # The queue tests each entry on top of the ones ahead of it, so a push to
+  # the default branch has already passed and runs nothing.
+  merge_group:
+  # A merge_group run saves its build cache on its queue branch, which no pull
+  # request can restore from, and a schedule run saves none, so the daily
+  # refresh job dispatches this workflow on the default branch, whose run
+  # saves the cache pull requests restore from.
+  schedule:
+    - cron: "37 8 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -20,11 +28,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  refresh:
+    if: github.event_name == 'schedule'
+    # One API call: a GitHub-hosted runner, which bills no Namespace units.
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      actions: write
+    steps:
+      - name: Dispatch CI on the default branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW: ${{ github.workflow_ref }}
+        run: |
+          workflow=${WORKFLOW%@*}
+          gh workflow run "${workflow##*/}" --repo "$REPOSITORY" --ref main
+
   # The shared workflow runs verify, picks the runner from this repository's
   # visibility, and caches builds with mbx.
   verify:
-    if: ${{ !github.event.pull_request.draft }}
-    uses: victor-software-house/actions/.github/workflows/rust-ci.yml@e043b23758a65d7d1261246374bd105bbd4270d4 # main, 2026-10-24
+    if: ${{ !github.event.pull_request.draft && github.event_name != 'schedule' }}
+    uses: victor-software-house/actions/.github/workflows/rust-ci.yml@19aa1c59bc8001e5df50ad52745b8c678474cdf7 # main, 2026-10-24
     with:
       mise-version: 2026.10.17
       advisories: true
