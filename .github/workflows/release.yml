@@ -16,14 +16,15 @@ jobs:
     permissions:
       contents: write # tags, Releases, and verctl/release/main without the App
       pull-requests: write # the Version PR without the App
-    uses: victor-software-house/verctl/.github/workflows/release.yml@f7a629b2ec702ad6a499e32a735b0e4fd1192c79 # v0.5.1
+      id-token: write # crates.io trusted publishing
+    uses: victor-software-house/verctl/.github/workflows/release.yml@6a8108e08c7e0e532034704216a1eab885008ef7 # v0.7.0
     with:
       mise-version: 2026.10.17
       mise-env: ci,release
       auto-merge: true
+      crates-io-trusted-publishing: true
     # The App token opens the Version PR so that its CI starts; a PR opened
     # with GITHUB_TOKEN starts no workflow.
     secrets:
       app-client-id: ${{ secrets.CHANGESET_VERSION_APP_CLIENT_ID }}
       app-private-key: ${{ secrets.CHANGESET_VERSION_APP_PRIVATE_KEY }}
-      registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
