@@ -22,7 +22,7 @@ rust = [
   # rustfmt's unstable options, and rustdoc as docs.rs builds it.
   { version = "nightly-2026-09-29", profile = "minimal", components = "rustfmt" },
 ]
-mr-boxington = "1.24.0"
+mr-boxington = "1.27.0"
 "github:EmbarkStudios/cargo-deny" = "0.20.2"
 "github:bnjbvr/cargo-machete" = "0.9.2"
 "github:obi1kenobi/cargo-semver-checks" = "0.51.0"
@@ -78,9 +78,9 @@ includes = [
   "git::https://github.com/victor-software-house/verctl.git//tasks/ver?ref=v0.5.1",
   "git::https://github.com/victor-software-house/qctl.git//tasks/q?ref=v0.6.0",
   # The shared Rust tasks, at actions main, 2026-10-24.
-  "git::https://github.com/victor-software-house/actions.git//tasks/rust.toml?ref=e043b23758a65d7d1261246374bd105bbd4270d4",
+  "git::https://github.com/victor-software-house/actions.git//tasks/rust.toml?ref=19aa1c59bc8001e5df50ad52745b8c678474cdf7",
   # template:check, template:off, and template:on, at actions main, 2026-10-24.
-  "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=e043b23758a65d7d1261246374bd105bbd4270d4",
+  "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=19aa1c59bc8001e5df50ad52745b8c678474cdf7",
 ]
 
 # The one task here: the last include wins over mise-tasks/, so only an inline
