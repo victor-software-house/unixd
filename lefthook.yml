@@ -23,12 +23,27 @@ commit-msg:
       env: *hookenv
       run: mise run commit-msg {1}
 
+# Hooks are the cheap local tier: no build, test, typecheck or type-aware
+# lint. The pull request's CI is the gate and runs all of them.
 pre-push:
   commands:
+    # Fails when a mise lockfile no longer matches its config. `mise lock
+    # --dry-run` writes and installs nothing; `mise install --locked` would
+    # download a missing tool.
     lockfile:
       env: *hookenv
-      run: mise install --locked
-    # Lints each pushed commit the remote does not have yet. git passes one
+      run: |
+        if ! changes=$(mise lock --dry-run --json); then
+          echo "✘ mise lock --dry-run failed; see its error above"
+          exit 1
+        fi
+        if [ "$changes" != "[]" ]; then
+          printf '%s\n' "$changes"
+          echo "✘ a mise lockfile is stale: run mise lock"
+          exit 1
+        fi
+    # Lints each pushed commit the remote does not have yet, and scans those
+    # commits, not the whole history, for credentials. git passes one
     # `<local ref> <local sha> <remote ref> <remote sha>` line per ref on
     # stdin. A delete (all-zero local sha) pushes nothing. Excluding every
     # commit any remote-tracking ref already holds skips main's history,
@@ -51,7 +66,5 @@ pre-push:
           for commit in $commits; do
             mise run commits "$commit" </dev/null || exit 1
           done
+          mise run hooks:secrets:history --log-opts="$lsha --not --remotes $known" </dev/null || exit 1
         done
-    full-history-secrets:
-      env: *hookenv
-      run: mise run hooks:secrets:history

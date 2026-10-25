@@ -28,7 +28,7 @@ jobs:
   # takes that App's key and no other secret.
   template:
     if: ${{ !github.event.pull_request.draft }}
-    uses: victor-software-house/actions/.github/workflows/template-check.yml@19aa1c59bc8001e5df50ad52745b8c678474cdf7 # main, 2026-10-24
+    uses: victor-software-house/actions/.github/workflows/template-check.yml@444c20944bb46cf90583931dbfb5678227dff774 # main, 2026-10-24
     permissions:
       contents: read
       issues: write
@@ -44,6 +44,7 @@ jobs:
         .envrc
         .github/actionlint.yaml
         .github/workflows/ci.yml
+        .github/workflows/secrets.yml
         .github/workflows/template.yml
         .miserc.toml
         .oxfmtrc.json
