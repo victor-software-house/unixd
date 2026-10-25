@@ -70,5 +70,8 @@ pre-push:
           for commit in $commits; do
             mise run commits "$commit" </dev/null || exit 1
           done
-          mise run hooks:secrets:history --log-opts="$lsha --not --remotes $known" </dev/null || exit 1
+          # gitleaks splits --log-opts on spaces, so an empty $known must
+          # leave no trailing space: git reads that as an empty revision and
+          # gitleaks scans no commit.
+          mise run hooks:secrets:history --log-opts="$lsha --not --remotes${known:+ $known}" </dev/null || exit 1
         done
