@@ -330,6 +330,10 @@ impl Cache {
         private::validate_root(&self.inner.root)?;
         private::ensure_dir(&self.inner.root.join(LOCKS))?;
         let maintenance = private::open_lock(&self.inner.root.join(MAINTENANCE))?;
+        #[expect(
+            clippy::map_err_ignore,
+            reason = "the OS error carries no detail a caller may match, and `Error::Lock` has no field to hold it"
+        )]
         maintenance.lock_shared().map_err(|_| Error::Lock)?;
         let held = private::lock_exclusive(&lock_path(&self.inner, key.digest()))?;
         Ok(KeyLock {
@@ -376,6 +380,10 @@ impl Cache {
     pub fn clear(&self) -> Result<(), Error> {
         private::validate_root(&self.inner.root)?;
         let maintenance = private::open_lock(&self.inner.root.join(MAINTENANCE))?;
+        #[expect(
+            clippy::map_err_ignore,
+            reason = "the OS error carries no detail a caller may match, and `Error::Lock` has no field to hold it"
+        )]
         maintenance.lock().map_err(|_| Error::Lock)?;
         let entries = self.inner.root.join(ENTRIES);
         private::ensure_dir(&entries)?;
@@ -450,6 +458,10 @@ impl KeyLock {
             source: policy.source,
             value,
         };
+        #[expect(
+            clippy::map_err_ignore,
+            reason = "the serializer error can quote the value, which an error never carries, so `Error::Encode` has no field for it"
+        )]
         let bytes = serde_json::to_vec(&entry).map_err(|_| Error::Encode)?;
         let size = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
         if size > self.inner.limits.max_entry_bytes {
@@ -603,7 +615,15 @@ fn prune(inner: &Inner, wait: Wait) -> Result<Prune, Error> {
     let pruning = private::open_lock(&inner.root.join(PRUNE_LOCK))?;
     match wait {
         Wait::Block => {
+            #[expect(
+                clippy::map_err_ignore,
+                reason = "the OS error carries no detail a caller may match, and `Error::Lock` has no field to hold it"
+            )]
             maintenance.lock_shared().map_err(|_| Error::Lock)?;
+            #[expect(
+                clippy::map_err_ignore,
+                reason = "the OS error carries no detail a caller may match, and `Error::Lock` has no field to hold it"
+            )]
             pruning.lock().map_err(|_| Error::Lock)?;
         }
         Wait::Skip => {

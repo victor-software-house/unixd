@@ -36,7 +36,7 @@ const START_MS: u64 = 1_000_000;
 
 fn open(root: &Path, schema: u32, limits: Limits) -> (Cache, Arc<ManualClock>) {
     let clock = Arc::new(ManualClock(AtomicU64::new(START_MS)));
-    let cache = Cache::with_clock(root, schema, limits, clock.clone()).unwrap();
+    let cache = Cache::with_clock(root, schema, limits, Arc::clone(&clock)).unwrap();
     (cache, clock)
 }
 

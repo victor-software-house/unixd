@@ -88,7 +88,7 @@ impl KeyBuilder {
 
 /// Length-prefixes each field, so `("ab", "c")` and `("a", "bc")` differ.
 fn feed(hasher: &mut Sha256, field: &str) {
-    hasher.update((field.len() as u64).to_le_bytes());
+    hasher.update(u64::try_from(field.len()).unwrap_or(u64::MAX).to_le_bytes());
     hasher.update(field.as_bytes());
 }
 
