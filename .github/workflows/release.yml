@@ -3,7 +3,7 @@ name: Release
 # verctl's reusable release workflow, on every push to main and on demand.
 # It plans every version commit not yet fully released and publishes each at
 # that commit, whatever main's HEAD is now, then opens or updates the Version
-# PR on verctl/release/main with auto-merge.
+# PR on verctl/release/main. Only the operator merges the Version PR.
 on:
   push:
     branches: [main]
@@ -21,7 +21,6 @@ jobs:
     with:
       mise-version: 2026.10.25
       mise-env: ci,release
-      auto-merge: true
       crates-io-trusted-publishing: true
     # The App token opens the Version PR so that its CI starts; a PR opened
     # with GITHUB_TOKEN starts no workflow.

@@ -76,6 +76,13 @@ mise run verify
 
 Lints are denied, not warned. `mise run verify` is the gate.
 
+## Release
+
+`.github/workflows/release.yml` calls verctl's reusable release workflow on
+every push to `main`: it publishes each version commit not yet released, then
+opens or updates the Version PR on `verctl/release/main`. Only the operator
+merges the Version PR, so no release happens on its own.
+
 ## Changes
 
 Plan a behaviour or contract change as an OpenSpec change in

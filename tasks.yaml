@@ -4,6 +4,17 @@ prefix: UXD
 active: null
 queue: []
 archive:
+  - id: UXD-009
+    title: Only the operator merges the Version PR
+    scope: .github/workflows/release.yml, AGENTS.md
+    outcome: "No unixd release happens on its own: the release workflow never arms auto-merge on the Version PR."
+    notes:
+      - Operator decision 2026-11-02, no repository releases on its own.
+    completed: 2026-11-02T17:30:11
+    evidence:
+      - This pull request drops auto-merge from release.yml and states in AGENTS.md that only the operator merges the Version PR.
+    disposition: completed
+
   - id: UXD-008
     title: Take the shared Rust setup from the Copier template
     scope: .copier-answers.yml at templates v0.0.5, the files the template renders, mise.toml, mise-tasks/, the workflows, and every mise lock
