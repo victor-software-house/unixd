@@ -24,6 +24,10 @@ pub(crate) fn ensure_root(root: &Path) -> Result<(), Error> {
 
 /// Refuses a symlink or another user's directory, then sets `0700`.
 pub(crate) fn validate_root(root: &Path) -> Result<(), Error> {
+    #[expect(
+        clippy::map_err_ignore,
+        reason = "the OS error is reduced to the kind `Error::UnsafeRoot` names, because it can carry the path, which an error never carries"
+    )]
     let metadata = fs::symlink_metadata(root).map_err(|_| Error::UnsafeRoot)?;
     if !metadata.file_type().is_dir() || !owned(&metadata) {
         return Err(Error::UnsafeRoot);
@@ -87,6 +91,10 @@ impl Drop for Held {
 pub(crate) fn lock_exclusive(path: &Path) -> Result<Held, Error> {
     loop {
         let file = open_lock(path)?;
+        #[expect(
+            clippy::map_err_ignore,
+            reason = "the OS error carries no detail a caller may match, and `Error::Lock` has no field to hold it"
+        )]
         file.lock().map_err(|_| Error::Lock)?;
         if names(path, &file)? {
             return Ok(Held {

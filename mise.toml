@@ -1,5 +1,5 @@
 # The latest stable mise is the floor; CI pins the same version.
-min_version = "2026.10.17"
+min_version = "2026.10.25"
 
 [settings]
 # mise loads git:: task includes only in experimental mode.
@@ -18,11 +18,11 @@ locked = true
 [tools]
 rust = [
   # Pinned stable: build, lint, test.
-  { version = "1.99.0", components = "clippy", mr_boxington = true },
+  { version = "1.99.1", profile = "minimal", components = "clippy", mr_boxington = true },
   # rustfmt's unstable options, and rustdoc as docs.rs builds it.
-  { version = "nightly-2026-09-29", profile = "minimal", components = "rustfmt" },
+  { version = "nightly-2026-11-01", profile = "minimal", components = "rustfmt" },
 ]
-mr-boxington = "1.27.0"
+mr-boxington = "1.29.1"
 "github:EmbarkStudios/cargo-deny" = "0.20.2"
 "github:bnjbvr/cargo-machete" = "0.9.2"
 "github:obi1kenobi/cargo-semver-checks" = "0.51.0"
@@ -33,18 +33,18 @@ jq = "1.8.2"
 
 # The repository checks (mise-tasks/check/repo.sh).
 taplo = "0.10.0"
-rumdl = "0.2.79"
+rumdl = "0.3.2"
 typos = "1.51.1"
 actionlint = "1.7.12"
 # OpenSpec's standalone release binary; it needs no node.
-"github:Fission-AI/OpenSpec" = "1.15.0"
+"github:Fission-AI/OpenSpec" = "1.16.0"
 
 # The shared Rust tasks read their toolchains from here and name none.
 [env]
 # format runs rustfmt on the nightly, for its unstable options.
-RUSTFMT_TOOLCHAIN = "+nightly-2026-09-29"
+RUSTFMT_TOOLCHAIN = "+nightly-2026-11-01"
 # doc builds on the nightly, as docs.rs does.
-RUST_NIGHTLY = "nightly-2026-09-29"
+RUST_NIGHTLY = "nightly-2026-11-01"
 
 # The one gate, composed from the pieces this repository keeps. deny:advisories
 # and semver need the network, so they run as their own CI steps.
@@ -77,10 +77,10 @@ includes = [
   # the workflow's pin.
   "git::https://github.com/victor-software-house/verctl.git//tasks/ver?ref=v0.7.0",
   "git::https://github.com/victor-software-house/qctl.git//tasks/q?ref=v0.6.0",
-  # The shared Rust tasks, at actions main, 2026-10-25.
-  "git::https://github.com/victor-software-house/actions.git//tasks/rust.toml?ref=e3e1e593e10a4820e89b489064fa426458d349d0",
-  # template:check, template:off, and template:on, at actions main, 2026-10-25.
-  "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=e3e1e593e10a4820e89b489064fa426458d349d0",
+  # The shared Rust tasks, at actions main, 2026-11-02.
+  "git::https://github.com/victor-software-house/actions.git//tasks/rust.toml?ref=6e9dd33a97807e6e7437cb06b9c0310d674534ea",
+  # template:check, template:off, and template:on, at actions main, 2026-11-02.
+  "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=6e9dd33a97807e6e7437cb06b9c0310d674534ea",
 ]
 
 # The one task here: the last include wins over mise-tasks/, so only an inline

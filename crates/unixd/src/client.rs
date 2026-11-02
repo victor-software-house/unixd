@@ -62,6 +62,10 @@ impl Client {
             id: request_id(),
             body,
         };
+        #[expect(
+            clippy::map_err_ignore,
+            reason = "the serializer error can quote the request, which an error never carries"
+        )]
         let mut frame = serde_json::to_vec(&request).map_err(|_| ClientError::Encode)?;
         frame.push(b'\n');
         if frame.len() > self.limits.max_frame_bytes {
@@ -74,6 +78,10 @@ impl Client {
         write_frame(&stream, deadline, &frame)?;
         stream.shutdown(Shutdown::Write).map_err(io_error)?;
         let line = read_frame(&stream, deadline, self.limits.max_frame_bytes)?;
+        #[expect(
+            clippy::map_err_ignore,
+            reason = "the parser error can quote the peer's bytes, which an error never carries"
+        )]
         let response: Response<R> =
             serde_json::from_slice(&line).map_err(|_| ClientError::InvalidFrame)?;
         if response.id != request.id {
