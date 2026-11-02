@@ -19,7 +19,7 @@ jobs:
       id-token: write # crates.io trusted publishing
     uses: victor-software-house/verctl/.github/workflows/release.yml@6a8108e08c7e0e532034704216a1eab885008ef7 # v0.7.0
     with:
-      mise-version: 2026.10.17
+      mise-version: 2026.10.25
       mise-env: ci,release
       auto-merge: true
       crates-io-trusted-publishing: true
