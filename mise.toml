@@ -78,9 +78,9 @@ includes = [
   "git::https://github.com/victor-software-house/verctl.git//tasks/ver?ref=v0.7.0",
   "git::https://github.com/victor-software-house/qctl.git//tasks/q?ref=v0.6.0",
   # The shared Rust tasks, at actions main, 2026-11-02.
-  "git::https://github.com/victor-software-house/actions.git//tasks/rust.toml?ref=b352d4ba45a214d3a2da86c1425e1018523248cc",
+  "git::https://github.com/victor-software-house/actions.git//tasks/rust.toml?ref=6e9dd33a97807e6e7437cb06b9c0310d674534ea",
   # template:check, template:off, and template:on, at actions main, 2026-11-02.
-  "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=b352d4ba45a214d3a2da86c1425e1018523248cc",
+  "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=6e9dd33a97807e6e7437cb06b9c0310d674534ea",
 ]
 
 # The one task here: the last include wins over mise-tasks/, so only an inline

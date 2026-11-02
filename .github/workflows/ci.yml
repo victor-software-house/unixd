@@ -37,7 +37,7 @@ jobs:
 
   verify:
     if: ${{ !github.event.pull_request.draft && github.event_name != 'schedule' }}
-    uses: victor-software-house/actions/.github/workflows/rust-ci.yml@b352d4ba45a214d3a2da86c1425e1018523248cc # main, 2026-11-02
+    uses: victor-software-house/actions/.github/workflows/rust-ci.yml@6e9dd33a97807e6e7437cb06b9c0310d674534ea # main, 2026-11-02
     with:
       mise-version: 2026.10.25
       advisories: true
