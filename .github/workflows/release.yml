@@ -17,7 +17,7 @@ jobs:
       contents: write # tags, Releases, and verctl/release/main without the App
       pull-requests: write # the Version PR without the App
       id-token: write # crates.io trusted publishing
-    uses: victor-software-house/verctl/.github/workflows/release.yml@6a8108e08c7e0e532034704216a1eab885008ef7 # v0.7.0
+    uses: victor-software-house/verctl/.github/workflows/release.yml@ff96452d1efb4cb2657a1d70af68984bd2fab601 # v0.7.2
     with:
       mise-version: 2026.10.25
       mise-env: ci,release
