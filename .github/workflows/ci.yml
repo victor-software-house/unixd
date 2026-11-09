@@ -40,7 +40,14 @@ jobs:
 
   verify:
     if: ${{ !github.event.pull_request.draft && github.event_name != 'schedule' }}
-    uses: victor-software-house/actions/.github/workflows/rust-ci.yml@dec9ec1aaa6b08b1424deb891c88ee50dd26da07 # main, 2026-11-09
+    # The shared jobs that install tools trade the job's OIDC token for a
+    # release mirror session token.
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      pull-requests: read
+    uses: victor-software-house/actions/.github/workflows/rust-ci.yml@d6ce82bb1fe3a3bac6c68619c603993c08990d64 # main, 2026-11-09
     with:
       mise-version: 2026.10.25
       advisories: true
@@ -50,5 +57,3 @@ jobs:
       read-only-runner: '["ubuntu-latest"]'
       light-runner: ubuntu-latest
       cache-volume: false
-    secrets:
-      release-mirror-token: ${{ secrets.RELEASE_MIRROR_TOKEN }}
