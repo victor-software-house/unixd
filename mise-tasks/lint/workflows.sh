@@ -1,14 +1,16 @@
-#!/usr/bin/env bash
+#!/bin/sh
 #MISE description="GitHub Actions workflow lint"
-# actionlint lints the workflows of the git repository it runs in, so the
-# check looks where actionlint does: the repository root, or this directory
-# outside a repository. actionlint fails where there is no workflow, such as
-# a fresh Bun render, so that case passes with a notice.
-shopt -s nullglob
-root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-workflows=("$root"/.github/workflows/*.yml "$root"/.github/workflows/*.yaml)
-if [ "${#workflows[@]}" -eq 0 ]; then
-  echo "no workflow in $root/.github/workflows, nothing to lint"
-  exit 0
-fi
-actionlint
+#MISE tools = { actionlint = "1.7.12" }
+# GitHub runs only the repository root's workflows, so the task lints those
+# from the root, also in a render below it, such as cli/.
+#
+# actionlint fails on a workflow folder with no file (actionlint 1.7.12,
+# linter.go LintDir). The task therefore lints the tracked workflows only.
+# With none, as in a fresh Bun render, nothing runs and the check passes.
+#
+# :(glob) keeps * in .github/workflows itself, the files GitHub runs. A failing
+# git ls-files fails the task. -z hands xargs each path unquoted, whatever it
+# holds.
+cd "$(git rev-parse --show-toplevel)" || exit 1
+files=$(git ls-files ':(glob).github/workflows/*.yml' ':(glob).github/workflows/*.yaml') || exit 1
+[ -z "$files" ] || git ls-files -z ':(glob).github/workflows/*.yml' ':(glob).github/workflows/*.yaml' | xargs -0 actionlint
