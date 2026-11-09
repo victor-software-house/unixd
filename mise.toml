@@ -13,7 +13,7 @@ lockfile_platforms = ["linux-x64", "macos-arm64"]
 [tool_config]
 locked = true
 
-# The toolchain lives here, not in mise.dev.toml, because CI loads only
+# The toolchain lives here instead of in mise.dev.toml, because CI loads only
 # MISE_ENV=ci. The stable pin equals rust-toolchain.toml and rust-version.
 [tools]
 rust = [
@@ -30,14 +30,6 @@ jq = "1.8.2"
 # test runs on nextest: a signal test stops its own process, and the
 # sleep-bound tests span three binaries, which nextest runs in parallel.
 "github:nextest-rs/nextest" = "cargo-nextest-0.9.143"
-
-# The repository checks (mise-tasks/check/repo.sh).
-taplo = "0.10.0"
-rumdl = "0.3.2"
-typos = "1.51.1"
-actionlint = "1.7.12"
-# OpenSpec's standalone release binary; it needs no node.
-"github:Fission-AI/OpenSpec" = "1.16.0"
 
 # The shared Rust tasks read their toolchains from here and name none.
 [env]
@@ -77,10 +69,10 @@ includes = [
   # the workflow's pin.
   "git::https://github.com/victor-software-house/verctl.git//tasks/ver?ref=v0.7.2",
   "git::https://github.com/victor-software-house/qctl.git//tasks/q?ref=v0.6.0",
-  # The shared Rust tasks, at actions main, 2026-11-02.
-  "git::https://github.com/victor-software-house/actions.git//tasks/rust.toml?ref=6e9dd33a97807e6e7437cb06b9c0310d674534ea",
-  # template:check, template:off, and template:on, at actions main, 2026-11-02.
-  "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=6e9dd33a97807e6e7437cb06b9c0310d674534ea",
+  # The shared Rust tasks, at actions main, 2026-11-09.
+  "git::https://github.com/victor-software-house/actions.git//tasks/rust.toml?ref=dec9ec1aaa6b08b1424deb891c88ee50dd26da07",
+  # template:check, template:off, and template:on, at actions main, 2026-11-09.
+  "git::https://github.com/victor-software-house/actions.git//tasks/template.toml?ref=dec9ec1aaa6b08b1424deb891c88ee50dd26da07",
 ]
 
 # The one task here: the last include wins over mise-tasks/, so only an inline

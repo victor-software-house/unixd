@@ -9,12 +9,15 @@ on:
     - cron: "37 8 * * *"
   workflow_dispatch:
 
+# The shared Verify job reads this run and the runs that replaced it.
 permissions:
+  actions: read
   contents: read
   pull-requests: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref_name }}
+  # A draft run gets a group of its own, so it never cancels the ready run.
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref_name }}${{ github.event.pull_request.draft && '-draft' || '' }}
   cancel-in-progress: true
 
 jobs:
@@ -37,7 +40,7 @@ jobs:
 
   verify:
     if: ${{ !github.event.pull_request.draft && github.event_name != 'schedule' }}
-    uses: victor-software-house/actions/.github/workflows/rust-ci.yml@6e9dd33a97807e6e7437cb06b9c0310d674534ea # main, 2026-11-02
+    uses: victor-software-house/actions/.github/workflows/rust-ci.yml@dec9ec1aaa6b08b1424deb891c88ee50dd26da07 # main, 2026-11-09
     with:
       mise-version: 2026.10.25
       advisories: true
@@ -47,3 +50,5 @@ jobs:
       read-only-runner: '["ubuntu-latest"]'
       light-runner: ubuntu-latest
       cache-volume: false
+    secrets:
+      release-mirror-token: ${{ secrets.RELEASE_MIRROR_TOKEN }}
