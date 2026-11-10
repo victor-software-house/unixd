@@ -1,5 +1,5 @@
 # Changes here will be overwritten by Copier; edit with `copier update --data`.
-_commit: v0.0.77
+_commit: v0.0.86
 _src_path: https://github.com/victor-software-house/templates.git
 ci_runner: github-hosted
 clippy_disallowed_methods: []
@@ -10,6 +10,7 @@ deny_ignore: []
 deny_licenses: []
 deny_skip: []
 feature_sets: []
+generated_paths: []
 github_owner: victor-software-house
 layout: workspace
 max_width: 100
