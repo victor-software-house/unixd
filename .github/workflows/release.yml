@@ -9,6 +9,14 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# One release run at a time. A newer run waits instead of cancelling one that
+# may be publishing; it plans every unreleased version commit, so the queued
+# run covers what any skipped one would have. The "-caller" part keeps this
+# group apart from the called workflow's own group.
+concurrency:
+  group: ${{ github.workflow }}-caller-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions: {}
 
 jobs:
