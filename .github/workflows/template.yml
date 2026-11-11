@@ -17,26 +17,34 @@ permissions:
   contents: read
 
 concurrency:
-  # A draft run gets a group of its own, so it never cancels the ready run.
-  group: template-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref_name }}${{ github.event.pull_request.draft && '-draft' || '' }}
+  # Every merge queue entry shares one group, so a newer entry's run cancels the
+  # runs of the entries ahead of it: the queue merges on the newest entry's
+  # result, whose merge-group commit holds every entry ahead of it. Outside the
+  # queue, a draft run gets a group of its own, so it never cancels the ready
+  # run.
+  group: >-
+    template-${{ github.event_name == 'merge_group' && format('queue-{0}',
+    github.event.merge_group.base_ref) || format('{0}-{1}{2}', github.event_name,
+    github.event.pull_request.number || github.ref_name, github.event.pull_request.draft && '-draft'
+    || '') }}
   cancel-in-progress: true
 
 jobs:
   # Fails an update pull request that does not reach the newest template tag.
   # Any other pull request gets a notice; the daily run keeps an issue
   # open while the newest tag would change this repository. The shared
-  # workflow reads the template with the organization's reader App, so it
-  # takes that App's key and no other secret.
+  # workflow reads the template with the organization's reader App's key, and
+  # installs its tools through the release mirror with a session token.
   template:
     if: ${{ !github.event.pull_request.draft }}
-    uses: victor-software-house/actions/.github/workflows/template-check.yml@d6ce82bb1fe3a3bac6c68619c603993c08990d64 # main, 2026-11-09
+    uses: victor-software-house/actions/.github/workflows/template-check.yml@4168002fe58fd0b310bd2b65f9db2262fc0e21d3 # main, 2026-11-11
     permissions:
       contents: read
-      # The mise action trades the job's OIDC token for a mirror session token.
+      # The mise action exchanges it for the mirror's session token.
       id-token: write
       issues: write
     with:
-      mise-version: 2026.10.25
+      mise-version: 2026.11.6
       runner: ubuntu-latest
       # A pull request that changes none of these files skips the check, which
       # still reports. The list holds every file the template renders, whole
@@ -50,6 +58,7 @@ jobs:
         .github/workflows/ci.yml
         .github/workflows/secrets.yml
         .github/workflows/template.yml
+        .lefthook/**
         .miserc.toml
         .oxfmtrc.json
         .rumdl.toml
@@ -74,4 +83,6 @@ jobs:
         tsconfig.json
         tsdown.config.ts
     secrets:
+      RELEASE_MIRROR_URL: ${{ secrets.RELEASE_MIRROR_URL }}
+      RELEASE_MIRROR_CI_KEY: ${{ secrets.RELEASE_MIRROR_CI_KEY }}
       TEMPLATES_APP_PRIVATE_KEY: ${{ secrets.TEMPLATES_APP_PRIVATE_KEY }}

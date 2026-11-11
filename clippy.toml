@@ -5,11 +5,16 @@ disallowed-macros = [
     { path = "core::concat", reason = "use formatdoc/indoc for multiline strings" },
     { path = "std::concat", reason = "use formatdoc/indoc for multiline strings" },
 ]
+# A crate whose tokio lacks the `sync` feature, such as a workspace member
+# checked alone with `cargo clippy -p`, cannot resolve the tokio paths below,
+# so each sets `allow-invalid = true`.
 await-holding-invalid-types = [
-    "tokio::sync::MutexGuard",
-    "tokio::sync::RwLockReadGuard",
-    "tokio::sync::RwLockWriteGuard",
+    { path = "tokio::sync::MutexGuard", allow-invalid = true },
+    { path = "tokio::sync::RwLockReadGuard", allow-invalid = true },
+    { path = "tokio::sync::RwLockWriteGuard", allow-invalid = true },
 ]
-disallowed-methods = [
-    { path = "tokio::sync::mpsc::unbounded_channel", reason = "no backpressure; use a bounded channel" },
-]
+
+[[disallowed-methods]]
+path = "tokio::sync::mpsc::unbounded_channel"
+allow-invalid = true
+reason = "no backpressure; use a bounded channel"
