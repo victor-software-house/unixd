@@ -1,5 +1,5 @@
 #!/bin/sh
-#MISE description="The workflows follow the shared workflow policy: drafts, concurrency, labels, permissions, pins, mise_env"
+#MISE description="The workflows follow the policy rules the answers turn on, named below"
 #MISE tools = { conftest = "0.71.1" }
 # conftest pulls the policy by commit into the git directory, so the
 # repository carries no copy. --absolute-paths keeps a linked worktree's
@@ -42,7 +42,8 @@ render=$(pwd)
 cd "$(git rev-parse --show-toplevel)" || exit 1
 files=$(git ls-files ':(glob).github/workflows/*.yml' ':(glob).github/workflows/*.yaml') || exit 1
 [ -n "$files" ] || exit 0
-policy=$(git rev-parse --git-path 'workflow-policy/d6ce82bb1fe3a3bac6c68619c603993c08990d64') || exit 1
+commit=4168002fe58fd0b310bd2b65f9db2262fc0e21d3
+policy=$(git rev-parse --git-path "workflow-policy/$commit") || exit 1
 texts=$(git rev-parse --git-path "workflow-texts.$$.yaml") || exit 1
 trap 'rm -f "$texts"' EXIT
 trap 'exit 129' HUP
@@ -54,13 +55,19 @@ if [ ! -d "$policy" ]; then
   waited=0
   until mkdir "$policy.lock" 2>/dev/null; do
     waited=$((waited + 1))
-    [ "$waited" -le 600 ] || { echo "✘ $policy.lock has been held for 600 s; remove it if no run is pulling" >&2; exit 1; }
+    if [ "$waited" -gt 600 ]; then
+      echo "✘ $policy.lock has been held for 600 s; remove it if no run is pulling" >&2
+      exit 1
+    fi
     sleep 1
   done
   trap 'rm -rf "${policy:?}.part"; rmdir "$policy.lock" 2>/dev/null; rm -f "$texts"' EXIT
   if [ ! -d "$policy" ]; then
     rm -rf "${policy:?}.part"
-    if conftest pull --absolute-paths -p "$policy.part" 'git::https://github.com/victor-software-house/actions.git//policy?ref=d6ce82bb1fe3a3bac6c68619c603993c08990d64'; then mv "$policy.part" "$policy"; fi
+    url='git::https://github.com/victor-software-house/actions.git//policy?ref=4168002fe58fd0b310bd2b65f9db2262fc0e21d3'
+    if conftest pull --absolute-paths -p "$policy.part" "$url"; then
+      mv "$policy.part" "$policy"
+    fi
   fi
   trap 'rm -f "$texts"' EXIT
   rmdir "$policy.lock"
@@ -73,4 +80,11 @@ set -- -p "$policy" --data "$policy/defaults.yaml" --data "$texts"
 if [ -d "$settings" ]; then set -- "$@" -p "$settings"; fi
 if [ -f "$settings/config.yaml" ]; then set -- "$@" --data "$settings/config.yaml"; fi
 if [ -f .github/actionlint.yaml ]; then set -- "$@" --data .github/actionlint.yaml; fi
-git ls-files -z ':(glob).github/workflows/*.yml' ':(glob).github/workflows/*.yaml' | xargs -0 conftest test "$@" --namespace workflow_drafts --namespace workflow_concurrency --namespace workflow_labels --namespace workflow_permissions --namespace workflow_pins --namespace workflow_mise_env
+set -- "$@" --namespace workflow_drafts
+set -- "$@" --namespace workflow_concurrency
+set -- "$@" --namespace workflow_labels
+set -- "$@" --namespace workflow_permissions
+set -- "$@" --namespace workflow_pins
+set -- "$@" --namespace workflow_mise_env
+git ls-files -z ':(glob).github/workflows/*.yml' ':(glob).github/workflows/*.yaml' |
+  xargs -0 conftest test "$@"

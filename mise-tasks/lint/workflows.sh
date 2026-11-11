@@ -13,4 +13,6 @@
 # holds.
 cd "$(git rev-parse --show-toplevel)" || exit 1
 files=$(git ls-files ':(glob).github/workflows/*.yml' ':(glob).github/workflows/*.yaml') || exit 1
-[ -z "$files" ] || git ls-files -z ':(glob).github/workflows/*.yml' ':(glob).github/workflows/*.yaml' | xargs -0 jactionlint
+[ -n "$files" ] || exit 0
+git ls-files -z ':(glob).github/workflows/*.yml' ':(glob).github/workflows/*.yaml' |
+  xargs -0 jactionlint

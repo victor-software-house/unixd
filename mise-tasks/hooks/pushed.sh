@@ -10,7 +10,8 @@
 # lines into commits and hands them to the commits and hooks:secrets:history
 # tasks, whose stdin is closed.
 #
-# A delete (all-zero local sha) pushes nothing.
+# A delete (all-zero local sha, 40 zeros under SHA-1 and 64 under SHA-256)
+# pushes nothing.
 #
 # The loop excludes every commit a remote-tracking ref already holds. That
 # skips the default branch's history, GitHub squash merges included, and
@@ -18,11 +19,10 @@
 # tracking refs yet, too. The remote sha covers a remote tip that no tracking
 # ref names.
 set -euo pipefail
-zero=0000000000000000000000000000000000000000
 while read -r _ lsha _ rsha; do
-  [ "$lsha" = "$zero" ] && continue
+  case $lsha in *[!0]*) ;; *) continue ;; esac
   known=""
-  if [ "$rsha" != "$zero" ] && git cat-file -e "$rsha^{commit}" 2>/dev/null; then
+  if [[ $rsha == *[!0]* ]] && git cat-file -e "$rsha^{commit}" 2>/dev/null; then
     known=$rsha
   fi
   commits=$(git rev-list "$lsha" --not --remotes $known)
