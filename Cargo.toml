@@ -63,6 +63,10 @@ invalid_markdown_table = "deny"
 style = { level = "deny", priority = -1 }
 suspicious = { level = "deny", priority = -1 }
 pedantic = { level = "deny", priority = -1 }
+# `cargo package` writes `readme` into the manifest it packs, and the verify
+# build reads that manifest, so the lint fails every published crate with a
+# README.md on its own tarball.
+manual_readme = "allow"
 
 [workspace.lints.clippy]
 all = { level = "deny", priority = -1 }
