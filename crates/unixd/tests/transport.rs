@@ -6,14 +6,16 @@
     reason = "setup helpers outside #[test] functions panic on failure like the tests do"
 )]
 
-use std::fmt;
 use std::io::{Read as _, Write as _};
+use std::net::Shutdown;
 use std::os::unix::net::{UnixListener as StdListener, UnixStream as StdStream};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
+use std::{fmt, future, thread};
 
 use tempfile::TempDir;
 use tokio::net::UnixListener;
+use tokio::task::spawn_blocking;
 use unixd::{Client, ClientError, Failure, Handler, Limits, Version, serve_connection};
 
 const V1: Version = Version { major: 1, minor: 0 };
@@ -48,7 +50,7 @@ impl Handler for Echo {
     type Error = Missing;
 
     fn handle(&self, request: String) -> impl Future<Output = Result<String, Missing>> + Send {
-        std::future::ready(if request == "missing" {
+        future::ready(if request == "missing" {
             Err(Missing)
         } else {
             Ok(request)
@@ -71,9 +73,7 @@ fn start(limits: Limits) -> (TempDir, PathBuf) {
 
 async fn call(client: Client, body: &str) -> Result<String, ClientError> {
     let body = body.to_owned();
-    tokio::task::spawn_blocking(move || client.call(&body))
-        .await
-        .unwrap()
+    spawn_blocking(move || client.call(&body)).await.unwrap()
 }
 
 /// Linux resets a connection that its server closes with input unread, so a
@@ -126,10 +126,10 @@ async fn an_oversize_frame_closes_the_connection_without_a_reply() {
         ..Limits::default()
     };
     let (_dir, path) = start(limits);
-    let replies = tokio::task::spawn_blocking(move || {
+    let replies = spawn_blocking(move || {
         let mut stream = StdStream::connect(&path).unwrap();
         let _ = stream.write_all(&vec![b'x'; 64 * 1024]);
-        let _ = stream.shutdown(std::net::Shutdown::Write);
+        let _ = stream.shutdown(Shutdown::Write);
         read_all(stream)
     })
     .await
@@ -148,9 +148,7 @@ async fn a_silent_client_is_dropped_after_the_read_timeout() {
     let started = Instant::now();
     assert_eq!(call(Client::new(&path, V1), "next").await.unwrap(), "next");
     assert!(started.elapsed() >= Duration::from_millis(250));
-    let replies = tokio::task::spawn_blocking(move || read_all(silent))
-        .await
-        .unwrap();
+    let replies = spawn_blocking(move || read_all(silent)).await.unwrap();
     assert_eq!(replies, b"");
 }
 
@@ -173,7 +171,7 @@ fn a_reply_to_another_request_is_invalid() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("d.sock");
     let listener = StdListener::bind(&path).unwrap();
-    let server = std::thread::spawn(move || {
+    let server = thread::spawn(move || {
         let (mut stream, _) = listener.accept().unwrap();
         let mut request = Vec::new();
         stream.read_to_end(&mut request).unwrap();
@@ -195,7 +193,7 @@ fn a_reply_over_the_cap_is_refused_in_one_pass() {
     let path = dir.path().join("d.sock");
     let listener = StdListener::bind(&path).unwrap();
     let cap = Limits::default().max_frame_bytes;
-    let server = std::thread::spawn(move || {
+    let server = thread::spawn(move || {
         let (mut stream, _) = listener.accept().unwrap();
         let mut request = Vec::new();
         stream.read_to_end(&mut request).unwrap();

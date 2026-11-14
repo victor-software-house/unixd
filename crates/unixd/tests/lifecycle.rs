@@ -9,14 +9,16 @@
 )]
 
 use std::convert::Infallible;
-use std::fmt;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use std::{fmt, io};
 
+use rustix::process::{Signal, getpid, kill_process};
 use tempfile::TempDir;
 use tokio::net::UnixListener;
-use tokio::task::JoinHandle;
+use tokio::task::{JoinHandle, spawn_blocking};
+use tokio::time::sleep;
 use unixd::{
     Client, ClientError, Failure, Handler, Lifecycle, Limits, Shutdown, Version, serve_listener,
 };
@@ -53,7 +55,7 @@ impl Handler for Sleeper {
         if request == "shutdown" {
             self.0.request();
         } else if let Ok(millis) = request.parse() {
-            tokio::time::sleep(Duration::from_millis(millis)).await;
+            sleep(Duration::from_millis(millis)).await;
         }
         Ok(request)
     }
@@ -63,7 +65,7 @@ struct Daemon {
     _dir: TempDir,
     path: PathBuf,
     shutdown: Shutdown,
-    task: JoinHandle<std::io::Result<()>>,
+    task: JoinHandle<io::Result<()>>,
 }
 
 fn start(lifecycle: Lifecycle) -> Daemon {
@@ -91,16 +93,15 @@ fn start(lifecycle: Lifecycle) -> Daemon {
 fn call(path: &PathBuf, body: &str) -> JoinHandle<Result<String, ClientError>> {
     let client = Client::new(path, V1).with_deadline(Duration::from_secs(10));
     let body = body.to_owned();
-    tokio::task::spawn_blocking(move || client.call(&body))
+    spawn_blocking(move || client.call(&body))
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_signal_during_a_request_still_delivers_its_response() {
     let daemon = start(Lifecycle::default());
     let reply = call(&daemon.path, "500");
-    tokio::time::sleep(Duration::from_millis(150)).await;
-    rustix::process::kill_process(rustix::process::getpid(), rustix::process::Signal::TERM)
-        .unwrap();
+    sleep(Duration::from_millis(150)).await;
+    kill_process(getpid(), Signal::TERM).unwrap();
     assert_eq!(reply.await.unwrap().unwrap(), "500");
     daemon.task.await.unwrap().unwrap();
 }
@@ -134,7 +135,7 @@ async fn a_drain_cuts_connections_after_its_timeout() {
         ..Lifecycle::default()
     });
     let reply = call(&daemon.path, "5000");
-    tokio::time::sleep(Duration::from_millis(150)).await;
+    sleep(Duration::from_millis(150)).await;
     let started = Instant::now();
     daemon.shutdown.request();
     daemon.task.await.unwrap().unwrap();

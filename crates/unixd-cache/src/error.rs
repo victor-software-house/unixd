@@ -1,4 +1,4 @@
-use std::{fmt, io};
+use std::{error, fmt, io};
 
 /// Why a cache operation failed.
 ///
@@ -38,4 +38,4 @@ impl fmt::Display for Error {
     }
 }
 
-impl std::error::Error for Error {}
+impl error::Error for Error {}

@@ -141,8 +141,10 @@ async fn read_frame(reader: impl AsyncRead + Unpin, max: usize) -> Option<String
 
 #[cfg(test)]
 mod tests {
-    use std::fmt;
     use std::sync::atomic::{AtomicBool, Ordering};
+    use std::{fmt, future};
+
+    use tokio::io;
 
     use super::*;
 
@@ -175,13 +177,13 @@ mod tests {
 
         fn handle(&self, request: Value) -> impl Future<Output = Result<Value, Never>> + Send {
             self.0.store(true, Ordering::SeqCst);
-            std::future::ready(Ok(request))
+            future::ready(Ok(request))
         }
     }
 
     #[tokio::test]
     async fn an_oversize_frame_is_never_read_past_the_cap() {
-        let mut source = tokio::io::repeat(b'x').take(64 * 1024);
+        let mut source = io::repeat(b'x').take(64 * 1024);
         assert_eq!(read_frame(&mut source, 1024).await, None);
         assert!(64 * 1024 - source.limit() <= 1024);
     }

@@ -6,7 +6,7 @@
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::Duration;
-use std::{fmt, io};
+use std::{env, fmt, future, io, process};
 
 use serde::Serialize;
 use unixd::{Failure, Handler, Lifecycle, Limits, Shutdown, Version, serve};
@@ -47,8 +47,8 @@ impl Handler for Echo {
         if text == "shutdown" {
             self.0.request();
         }
-        std::future::ready(Ok(Echoed {
-            pid: std::process::id(),
+        future::ready(Ok(Echoed {
+            pid: process::id(),
             text,
         }))
     }
@@ -56,7 +56,7 @@ impl Handler for Echo {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> io::Result<()> {
-    let idle = std::env::args()
+    let idle = env::args()
         .nth(1)
         .and_then(|seconds| seconds.parse().ok())
         .unwrap_or(5);

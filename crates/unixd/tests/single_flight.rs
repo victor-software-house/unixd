@@ -1,10 +1,12 @@
 //! Single flight: shared runs, distinct keys, shared failures, and a leader
 //! that goes away.
 
+use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
+use tokio::time::sleep;
 use unixd::{FlightError, SingleFlight};
 
 type Flights = Arc<SingleFlight<&'static str, u32, &'static str>>;
@@ -14,13 +16,12 @@ fn work(
     runs: &Arc<AtomicUsize>,
     millis: u64,
     result: Result<u32, &'static str>,
-) -> impl FnOnce() -> std::pin::Pin<Box<dyn Future<Output = Result<u32, &'static str>> + Send>> + use<>
-{
+) -> impl FnOnce() -> Pin<Box<dyn Future<Output = Result<u32, &'static str>> + Send>> + use<> {
     let runs = Arc::clone(runs);
     move || {
         Box::pin(async move {
             runs.fetch_add(1, Ordering::SeqCst);
-            tokio::time::sleep(Duration::from_millis(millis)).await;
+            sleep(Duration::from_millis(millis)).await;
             result
         })
     }
@@ -86,7 +87,7 @@ async fn a_dropped_leader_does_not_cancel_the_work() {
         let work = work(&runs, 200, Ok(9));
         tokio::spawn(async move { flights.run("key", work).await })
     };
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    sleep(Duration::from_millis(50)).await;
     leader.abort();
     assert_eq!(
         flights.run("key", work(&runs, 200, Ok(0))).await.unwrap(),

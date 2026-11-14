@@ -7,7 +7,9 @@ use std::os::unix::fs::{MetadataExt as _, PermissionsExt as _};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use rustix::fs::{Mode, OFlags};
+use rustix::fs::{Mode, OFlags, fchmod, open};
+use rustix::io::Errno;
+use rustix::process::geteuid;
 
 use crate::Error;
 
@@ -55,7 +57,7 @@ pub(crate) fn ensure_dir(path: &Path) -> Result<(), Error> {
 /// file is at `path`; otherwise it keeps its errno.
 pub(crate) fn open_lock(path: &Path) -> Result<File, Error> {
     let flags = OFlags::RDWR | OFlags::CREATE | OFlags::CLOEXEC | OFlags::NOFOLLOW;
-    let file = match rustix::fs::open(path, flags, Mode::RUSR | Mode::WUSR) {
+    let file = match open(path, flags, Mode::RUSR | Mode::WUSR) {
         Ok(fd) => File::from(fd),
         Err(errno) => {
             return Err(match fs::symlink_metadata(path) {
@@ -68,7 +70,7 @@ pub(crate) fn open_lock(path: &Path) -> Result<File, Error> {
     if !metadata.file_type().is_file() || !owned(&metadata) {
         return Err(Error::UnsafeRoot);
     }
-    rustix::fs::fchmod(&file, Mode::RUSR | Mode::WUSR).map_err(|errno| Error::io(&errno.into()))?;
+    fchmod(&file, Mode::RUSR | Mode::WUSR).map_err(|errno| Error::io(&errno.into()))?;
     Ok(file)
 }
 
@@ -149,9 +151,9 @@ pub(crate) fn regular(path: &Path) -> Result<Option<Metadata>, Error> {
 /// `None`.
 pub(crate) fn read(path: &Path, limit: u64) -> Result<Option<(Vec<u8>, Metadata)>, Error> {
     let flags = OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOFOLLOW | OFlags::NONBLOCK;
-    let file = match rustix::fs::open(path, flags, Mode::empty()) {
+    let file = match open(path, flags, Mode::empty()) {
         Ok(fd) => File::from(fd),
-        Err(rustix::io::Errno::NOENT) => return Ok(None),
+        Err(Errno::NOENT) => return Ok(None),
         Err(errno) => {
             return match fs::symlink_metadata(path) {
                 Ok(metadata) if !metadata.file_type().is_file() => Ok(None),
@@ -199,9 +201,8 @@ pub(crate) fn create_private(dir: &Path, name: &str, bytes: &[u8]) -> Result<(),
 /// following a symlink.
 pub(crate) fn touch(path: &Path, time: SystemTime) -> Result<(), Error> {
     let flags = OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOFOLLOW | OFlags::NONBLOCK;
-    let file = File::from(
-        rustix::fs::open(path, flags, Mode::empty()).map_err(|errno| Error::io(&errno.into()))?,
-    );
+    let file =
+        File::from(open(path, flags, Mode::empty()).map_err(|errno| Error::io(&errno.into()))?);
     file.set_modified(time).map_err(|error| Error::io(&error))
 }
 
@@ -226,7 +227,7 @@ pub(crate) fn sync_dir(path: &Path) -> Result<(), Error> {
 }
 
 fn owned(metadata: &Metadata) -> bool {
-    metadata.uid() == rustix::process::geteuid().as_raw()
+    metadata.uid() == geteuid().as_raw()
 }
 
 fn set_mode(path: &Path, mode: u32) -> Result<(), Error> {

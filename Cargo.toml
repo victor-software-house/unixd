@@ -4,7 +4,7 @@ resolver = "3"
 
 [workspace.package]
 edition = "2024"
-rust-version = "1.99.1"
+rust-version = "1.100.0"
 license = "MIT"
 repository = "https://github.com/victor-software-house/unixd"
 authors = ["Victor Araújo <victor@victor-software-house.com>"]
@@ -50,6 +50,23 @@ invalid_codeblock_attributes = "deny"
 # Allow-by-default, so a -D warnings rustdoc build never fires it: an unbalanced
 # backtick renders the rest of the paragraph as code.
 unescaped_backticks = "deny"
+# New in Rust 1.100 and warn by default: an unescaped `|` in a table row drops
+# cells.
+invalid_markdown_table = "deny"
+
+[workspace.lints.cargo]
+# Cargo's own lints, new in Rust 1.100. Clippy's -D warnings does not reach
+# them, so each group is denied here; correctness is deny already.
+# unused_dependencies (style) checks [dependencies] and [build-dependencies]
+# from what the compiler used. cargo-machete in `deps` still covers
+# [dev-dependencies].
+style = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+# `cargo package` writes `readme` into the manifest it packs, and the verify
+# build reads that manifest, so the lint fails every published crate with a
+# README.md on its own tarball.
+manual_readme = "allow"
 
 [workspace.lints.clippy]
 all = { level = "deny", priority = -1 }
@@ -87,8 +104,12 @@ multiple_unsafe_ops_per_block = "deny"
 # idiomatic path and mod.rs the older style (ch07-05, "Alternate File Paths").
 # Many files named mod.rs blur together in an editor.
 mod_module_files = "deny"
+# An item from another module comes in through `use`, and the code names it
+# by its last segment, or a function by its module: `fs::read`, never
+# `std::fs::read` inline. The default limit is two segments.
+absolute_paths = "deny"
 # Duplicate versions come from transitive dependencies the crate does not
-# control; cargo-deny reports them (`bans.multiple-versions`).
+# control; cargo-deny fails on them (`bans.multiple-versions`).
 multiple_crate_versions = "allow"
 
 # The smallest binary that keeps its speed. Against opt-level 3 with thin LTO,

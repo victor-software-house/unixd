@@ -114,19 +114,21 @@ url = "https://github.com/victor-software-house/qctl/releases/download/v0.6.0/qc
 url_api = "https://api.github.com/repos/victor-software-house/qctl/releases/assets/671129358"
 
 [[tools."github:victor-software-house/verctl"]]
-version = "0.7.2"
+version = "0.8.6-rc.3"
 backend = "github:victor-software-house/verctl"
-specifiers = ["0.7.2"]
+specifiers = ["0.8.6-rc.3"]
 
 [tools."github:victor-software-house/verctl"."platforms.linux-x64"]
-checksum = "sha256:995c985015b2185996122c8f0f2b0d2cdbbc1c3e59a3101c9a650048355d1905"
-url = "https://github.com/victor-software-house/verctl/releases/download/v0.7.2/verctl_0.7.2_linux_x64.tar.gz"
-url_api = "https://api.github.com/repos/victor-software-house/verctl/releases/assets/703916656"
+checksum = "sha256:8c1888e46a538bb922d4ba25d7598df55aad391ebad09e55c451d4140a0f2407"
+checksum_source = "mise-versions"
+url = "https://github.com/victor-software-house/verctl/releases/download/v0.8.6-rc.3/verctl_0.8.6-rc.3_linux_x64.tar.gz"
+url_api = "https://api.github.com/repos/victor-software-house/verctl/releases/assets/746327083"
 
 [tools."github:victor-software-house/verctl"."platforms.macos-arm64"]
-checksum = "sha256:8b4e48104bd6dcff2d6d15d51c53a5140a733cb78795b8f4ba9f041d45b8937a"
-url = "https://github.com/victor-software-house/verctl/releases/download/v0.7.2/verctl_0.7.2_macos_arm64.tar.gz"
-url_api = "https://api.github.com/repos/victor-software-house/verctl/releases/assets/703921271"
+checksum = "sha256:2b4fc2b8d9e4c4ec8ff51c578340e1d5a594321ce7deeb0abcddad6ff83695b7"
+checksum_source = "mise-versions"
+url = "https://github.com/victor-software-house/verctl/releases/download/v0.8.6-rc.3/verctl_0.8.6-rc.3_macos_arm64.tar.gz"
+url_api = "https://api.github.com/repos/victor-software-house/verctl/releases/assets/746326984"
 
 [[tools.jactionlint]]
 version = "2.5.0"
@@ -163,19 +165,19 @@ url_api = "https://api.github.com/repos/jqlang/jq/releases/assets/453012783"
 provenance = "github-attestations"
 
 [[tools.mr-boxington]]
-version = "1.29.1"
+version = "1.30.0"
 backend = "packslip:github.com/jdx/mr-boxington"
-specifiers = ["1.29.1"]
+specifiers = ["1.30.0"]
 
 [tools.mr-boxington."platforms.linux-x64"]
-checksum = "sha256:ca95f28c77711845c0455839792ca3f3070bdf007979ab75bf7e10c03b07fe3f"
-url = "https://github.com/jdx/mr-boxington/releases/download/v1.29.1/mbx-x86_64-unknown-linux-gnu.tar.gz"
+checksum = "sha256:f4992b401fe65744b7c6e7400933d2106da205b499405621d088051a31a8f3f2"
+url = "https://github.com/jdx/mr-boxington/releases/download/v1.30.0/mbx-x86_64-unknown-linux-gnu.tar.gz"
 signer = "sigstore-oidc:https://github.com/jdx/mr-boxington/.github/workflows/release.yml"
 repository_ids = { repository = "1340721957" }
 
 [tools.mr-boxington."platforms.macos-arm64"]
-checksum = "sha256:2c19baafcda87ad948f071c571f57b2cf9eaeee2c971c5536b93ae3a036d5e75"
-url = "https://github.com/jdx/mr-boxington/releases/download/v1.29.1/mbx-aarch64-apple-darwin.tar.gz"
+checksum = "sha256:d5b957216c8b61c2df91c9e7aaf5febd45ec74274a60d3714ebe316edc144543"
+url = "https://github.com/jdx/mr-boxington/releases/download/v1.30.0/mbx-aarch64-apple-darwin.tar.gz"
 signer = "sigstore-oidc:https://github.com/jdx/mr-boxington/.github/workflows/release.yml"
 repository_ids = { repository = "1340721957" }
 
@@ -212,9 +214,9 @@ url_api = "https://api.github.com/repos/rvben/rumdl/releases/assets/685449362"
 provenance = "github-attestations"
 
 [[tools.rust]]
-version = "1.99.1"
+version = "1.100.0"
 backend = "core:rust"
-specifiers = ["1.99.1"]
+specifiers = ["1.100.0"]
 
 [tools.rust.options]
 components = "clippy"
