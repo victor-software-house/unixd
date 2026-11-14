@@ -7,10 +7,11 @@ use std::path::Path;
 use std::time::Duration;
 
 use rustix::net::sockopt::{self, Timeout};
-use rustix::net::{AddressFamily, SocketAddrUnix, SocketType};
+use rustix::net::{self, AddressFamily, SocketAddrUnix, SocketType};
+use rustix::process::geteuid;
 
 pub(crate) fn own_uid() -> u32 {
-    rustix::process::geteuid().as_raw()
+    geteuid().as_raw()
 }
 
 /// Whether a client may talk to a socket whose listener runs as `uid`. launchd
@@ -35,14 +36,14 @@ pub(crate) fn peer_uid(socket: impl AsFd) -> io::Result<u32> {
 pub(crate) fn connect(path: &Path, timeout: Duration) -> io::Result<UnixStream> {
     let socket = stream_socket()?;
     sockopt::set_socket_timeout(&socket, Timeout::Send, Some(timeout))?;
-    rustix::net::connect(&socket, &SocketAddrUnix::new(path)?)?;
+    net::connect(&socket, &SocketAddrUnix::new(path)?)?;
     Ok(UnixStream::from(socket))
 }
 
 #[cfg(target_os = "linux")]
 fn stream_socket() -> io::Result<OwnedFd> {
     use rustix::net::SocketFlags;
-    Ok(rustix::net::socket_with(
+    Ok(net::socket_with(
         AddressFamily::UNIX,
         SocketType::STREAM,
         SocketFlags::CLOEXEC,

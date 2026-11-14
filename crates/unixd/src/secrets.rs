@@ -1,12 +1,12 @@
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, PoisonError, Weak};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError, Weak};
 use std::time::Duration;
 use std::{fmt, io};
 
 use secrecy::zeroize::Zeroize;
 use secrecy::{ExposeSecret as _, SecretBox};
 use serde::Deserialize;
-use tokio::time::Instant;
+use tokio::time::{Instant, Interval, interval_at};
 
 /// When a secret leaves memory. A consumer embeds these in its own config and
 /// writes durations as `10m` or `2h`; `0s` turns a bound off, and an unknown
@@ -91,7 +91,7 @@ impl<S: Zeroize + Send + Sync + 'static> SecretStore<S> {
         });
         if !limits.sweep_every.is_zero() {
             let every = limits.sweep_every;
-            let ticks = tokio::time::interval_at(Instant::now() + every, every);
+            let ticks = interval_at(Instant::now() + every, every);
             tokio::spawn(sweep(Arc::downgrade(&store), ticks));
         }
         Ok(store)
@@ -160,12 +160,12 @@ impl<S: Zeroize> SecretStore<S> {
         self.lock().retain(|_, held| !held.expired(now));
     }
 
-    fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<String, Held<S>>> {
+    fn lock(&self) -> MutexGuard<'_, HashMap<String, Held<S>>> {
         self.secrets.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
 
-async fn sweep<S: Zeroize>(store: Weak<SecretStore<S>>, mut ticks: tokio::time::Interval) {
+async fn sweep<S: Zeroize>(store: Weak<SecretStore<S>>, mut ticks: Interval) {
     loop {
         ticks.tick().await;
         let Some(store) = store.upgrade() else {
@@ -176,6 +176,8 @@ async fn sweep<S: Zeroize>(store: Weak<SecretStore<S>>, mut ticks: tokio::time::
 }
 
 fn harden() -> io::Result<()> {
+    #[cfg(target_os = "linux")]
+    use rustix::process::{DumpableBehavior, set_dumpable_behavior};
     use rustix::process::{Resource, Rlimit, setrlimit};
     setrlimit(
         Resource::Core,
@@ -185,6 +187,6 @@ fn harden() -> io::Result<()> {
         },
     )?;
     #[cfg(target_os = "linux")]
-    rustix::process::set_dumpable_behavior(rustix::process::DumpableBehavior::NotDumpable)?;
+    set_dumpable_behavior(DumpableBehavior::NotDumpable)?;
     Ok(())
 }

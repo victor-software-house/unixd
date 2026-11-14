@@ -1,13 +1,15 @@
-use std::io;
 use std::os::fd::AsFd as _;
+use std::os::unix::net;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
+use std::{env, future, io};
 
 use serde::Deserialize;
 use tokio::net::UnixListener;
 use tokio::signal::unix::{SignalKind, signal};
 use tokio::sync::Notify;
+use tokio::time;
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
 
@@ -72,9 +74,8 @@ pub async fn serve<H: Handler + 'static>(
     lifecycle: Lifecycle,
     shutdown: Shutdown,
 ) -> io::Result<()> {
-    std::env::set_current_dir("/")?;
-    let listener =
-        std::os::unix::net::UnixListener::from(io::stdin().as_fd().try_clone_to_owned()?);
+    env::set_current_dir("/")?;
+    let listener = net::UnixListener::from(io::stdin().as_fd().try_clone_to_owned()?);
     listener.set_nonblocking(true)?;
     serve_listener(
         UnixListener::from_std(listener)?,
@@ -115,9 +116,9 @@ pub async fn serve_listener<H: Handler + 'static>(
     let result = loop {
         let idle = async {
             if open.load(Ordering::SeqCst) == 0 && !lifecycle.idle_timeout.is_zero() {
-                tokio::time::sleep(lifecycle.idle_timeout).await;
+                time::sleep(lifecycle.idle_timeout).await;
             } else {
-                std::future::pending::<()>().await;
+                future::pending::<()>().await;
             }
         };
         tokio::select! {
@@ -149,7 +150,7 @@ pub async fn serve_listener<H: Handler + 'static>(
     };
     drop(listener);
     tracker.close();
-    if tokio::time::timeout(lifecycle.drain_timeout, tracker.wait())
+    if time::timeout(lifecycle.drain_timeout, tracker.wait())
         .await
         .is_err()
     {

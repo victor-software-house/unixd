@@ -361,6 +361,7 @@ mod platform {
 #[cfg(target_os = "linux")]
 mod platform {
     use std::ffi::{OsStr, OsString};
+    use std::fs;
     use std::os::unix::ffi::OsStrExt as _;
     use std::path::{Path, PathBuf};
     use std::process::Command;
@@ -448,9 +449,9 @@ mod platform {
             StandardError=journal
         "};
         let units = unit_dir()?;
-        std::fs::create_dir_all(&units)?;
-        std::fs::write(units.join(format!("{label}.socket")), socket_unit)?;
-        std::fs::write(units.join(format!("{label}.service")), service_unit)?;
+        fs::create_dir_all(&units)?;
+        fs::write(units.join(format!("{label}.socket")), socket_unit)?;
+        fs::write(units.join(format!("{label}.service")), service_unit)?;
         run(systemctl().arg("daemon-reload"))?;
         run(systemctl()
             .arg("enable")

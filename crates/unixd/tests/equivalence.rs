@@ -14,6 +14,7 @@ use std::{fmt, fs};
 
 use serde_json::Value;
 use tokio::net::UnixListener;
+use tokio::task::spawn_blocking;
 use unixd::{Client, Failure, Handler, Limits, SingleFlight, Version, serve_connection};
 use unixd_cache::{Cache, Clock, Key, Lookup, Policy};
 
@@ -84,7 +85,7 @@ impl Handler for Daemon {
         let reply = self
             .flights
             .run(key, move || async move {
-                Ok(tokio::task::spawn_blocking(move || answer(&cache, &query))
+                Ok(spawn_blocking(move || answer(&cache, &query))
                     .await
                     .unwrap())
             })
@@ -126,7 +127,7 @@ async fn the_daemon_and_the_direct_path_agree() {
         }
     });
     let through_daemon: String =
-        tokio::task::spawn_blocking(move || Client::new(&socket, V1).call(&"unixd").unwrap())
+        spawn_blocking(move || Client::new(&socket, V1).call(&"unixd").unwrap())
             .await
             .unwrap();
     let direct = answer(&open(&direct_cache), "unixd");

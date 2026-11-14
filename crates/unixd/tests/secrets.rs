@@ -5,7 +5,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use tokio::time::advance;
+use rustix::process::{Resource, getrlimit};
+use tokio::time::{advance, sleep};
 use unixd::{SecretBox, SecretLimits, SecretStore, Zeroize};
 
 fn secret(text: &str) -> SecretBox<String> {
@@ -67,7 +68,7 @@ async fn removed_and_swept_secrets_are_zeroed() {
     store.put("swept", SecretBox::new(Box::new(Probe(Arc::clone(&swept)))));
     store.remove("removed");
     assert!(removed.load(Ordering::SeqCst));
-    tokio::time::sleep(Duration::from_mins(12)).await;
+    sleep(Duration::from_mins(12)).await;
     assert!(swept.load(Ordering::SeqCst));
 }
 
@@ -80,14 +81,14 @@ async fn a_secret_never_prints() {
 
 #[tokio::test]
 async fn a_store_turns_core_dumps_off() {
+    #[cfg(target_os = "linux")]
+    use rustix::process::{DumpableBehavior, dumpable_behavior};
+
     let _store = SecretStore::<String>::new(SecretLimits::default()).unwrap();
-    let limit = rustix::process::getrlimit(rustix::process::Resource::Core);
+    let limit = getrlimit(Resource::Core);
     assert_eq!((limit.current, limit.maximum), (Some(0), Some(0)));
     #[cfg(target_os = "linux")]
-    assert_eq!(
-        rustix::process::dumpable_behavior().unwrap(),
-        rustix::process::DumpableBehavior::NotDumpable
-    );
+    assert_eq!(dumpable_behavior().unwrap(), DumpableBehavior::NotDumpable);
 }
 
 #[test]
