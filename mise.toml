@@ -76,7 +76,7 @@ includes = [
   # `mise run ver`, which the release workflow, check:versions, and semver
   # run. Bump the ref together with the verctl pin in mise.release.toml and
   # the workflow's pin.
-  "git::https://github.com/victor-software-house/verctl.git//tasks/ver?ref=v0.7.2",
+  "git::https://github.com/victor-software-house/verctl.git//tasks/ver?ref=v0.8.6-rc.3",
   "git::https://github.com/victor-software-house/qctl.git//tasks/q?ref=v0.6.0",
   # The shared Rust tasks, at actions main, 2026-11-14.
   "git::https://github.com/victor-software-house/actions.git//tasks/rust.toml?ref=5ad08e7382a53bd35c65fc1e1aaa1c2fae427ed9",
