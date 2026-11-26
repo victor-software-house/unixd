@@ -27,7 +27,7 @@ jobs:
       id-token: write # crates.io trusted publishing
     uses: victor-software-house/verctl/.github/workflows/release.yml@e06503d01ceb0b04ba50e2d234583f002db22951 # v0.8.6-rc.5
     with:
-      mise-version: 2026.11.6
+      mise-version: 2026.11.12
       mise-env: ci,release
       crates-io-trusted-publishing: true
     # The App token opens the Version PR so that its CI starts; a PR opened
